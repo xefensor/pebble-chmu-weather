@@ -19,6 +19,7 @@ MAX_BODY = 4 * 1024 * 1024
 MAX_INPUT = 8 * 1024 * 1024
 TIMEOUT = 8
 HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+RESPONSE_HEADERS = ("etag", "last-modified", "cache-control", "expires")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -89,6 +90,19 @@ def response_body(response):
         return None
 
 
+def response_headers(response):
+    selected = {}
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return selected
+    for name in RESPONSE_HEADERS:
+        value = headers.get(name)
+        if (isinstance(value, str) and len(value) <= 4096
+                and not any(char in value for char in ("\r", "\n", "\0"))):
+            selected[name] = value
+    return selected
+
+
 def transport(payload):
     try:
         request = make_request(payload)
@@ -96,16 +110,18 @@ def transport(payload):
         opener = urllib.request.build_opener(NoRedirect())
         try:
             with opener.open(request, timeout=TIMEOUT) as response:
-                return {"status": response.status, "body": response_body(response)}
+                return {"status": response.status, "body": response_body(response),
+                        "headers": response_headers(response)}
         except urllib.error.HTTPError as response:
             with response:
-                return {"status": response.code, "body": response_body(response)}
+                return {"status": response.code, "body": response_body(response),
+                        "headers": response_headers(response)}
     except Exception:
-        return {"status": 0, "body": None}
+        return {"status": 0, "body": None, "headers": {}}
 
 
 def main():
-    result = {"status": 0, "body": None}
+    result = {"status": 0, "body": None, "headers": {}}
     try:
         raw = sys.stdin.buffer.read(MAX_INPUT + 1)
         if len(raw) <= MAX_INPUT:

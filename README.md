@@ -10,11 +10,11 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install the 0.4.0 beta
+## Install the 0.5.0 beta
 
 1. In Pebble mobile app 1.16.x, enable **Settings → Plugins → Plugins /
    permissions preview**. Labels may change while plugins are in preview.
-2. Open [CHMU-Weather-0.4.0.pbw](dist/CHMU-Weather-0.4.0.pbw) with the Pebble app.
+2. Open [CHMU-Weather-0.5.0.pbw](dist/CHMU-Weather-0.5.0.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
    `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com` through Pebble's
    normal permission flow.
@@ -28,7 +28,7 @@ developer-operated server is needed.
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
 This is a sideloadable beta, not a Pebble Store release. Installation and
 end-to-end delivery inside the physical phone/watch runtime still need testing.
-Source: [CHMU-Weather-0.4.0-source.zip](dist/CHMU-Weather-0.4.0-source.zip).
+Source: [CHMU-Weather-0.5.0-source.zip](dist/CHMU-Weather-0.5.0-source.zip).
 
 ## Weather sources
 
@@ -37,8 +37,8 @@ Source: [CHMU-Weather-0.4.0-source.zip](dist/CHMU-Weather-0.4.0-source.zip).
 | Current temperature | ČHMÚ station measurement, at most one hour old; otherwise a forecast marked `~` in direct plugin readings |
 | Humidity and wind | Measurements from the temperature station at the same timestamp when available; each missing field falls back to public ALADIN, then enabled Open-Meteo |
 | Conditions | Public ALADIN forecast, with enabled Open-Meteo filling missing values |
-| Hourly series | 48 slots for today and tomorrow, anchored at local midnight; the active slot uses a fresh station measurement, other slots prefer public ALADIN forecasts |
-| Daily forecast | Fresh ČHMÚ app aggregates for the first three dates; public ALADIN ranges and enabled Open-Meteo complete the available local forecast, up to seven days |
+| Hourly series | 48 slots for today and tomorrow; the active slot uses a fresh station measurement, forecasts supply other slots, and retained ALADIN context can fill missing past hours |
+| Daily forecast | Fresh ČHMÚ full-day aggregates first, then complete ALADIN ranges; enabled Open-Meteo supplies full days when ALADIN is incomplete, up to seven days |
 | UV | Separate choice of ČHMÚ clear-sky noon UV, Open-Meteo cloud-aware forecast peak, or Off |
 | Precipitation probability | Open-Meteo hourly and daily probabilities; never inferred from rainfall amounts |
 | Feels-like temperature | Calculated shade estimate using the displayed temperature, relative humidity and sustained 10 m wind, when all inputs are usable |
@@ -93,13 +93,24 @@ Temperature retains decimal precision and rounds only once for display in the
 chosen Celsius or Fahrenheit unit. The actual observation timestamp controls
 freshness: downloading the same measurement never makes it younger.
 
-Forecast responses can be reused offline for up to **six hours** after
-downloading. ČHMÚ app daily aggregates also require a source update age of at most six
-hours; UV records require the correct date and an original update no more than
-seven days old. Downloading them does not reset their source timestamps.
-Without usable app daily aggregates, today's ALADIN high/low can cover only the
-available part of today. Future ALADIN days must be complete before their
-ranges are used. The national ČHMÚ outlook is not presented as a local forecast.
+Current and future forecasts can be reused offline for up to **six hours**
+from the original body download. ČHMÚ app daily aggregates also require a source
+update age of at most six hours; UV records require today's date and an original
+update no more than seven days old. Rechecking an unchanged response does not
+reset these ages.
+
+The plugin retains ALADIN temperature and condition forecasts for already-past
+hours of today's Prague date. If a later model run drops the morning, those
+previously downloaded hours can preserve context for today's range. They remain
+forecasts and cannot supply current or future weather. A cold start midway
+through the day cannot reconstruct hours the plugin never received.
+
+ČHMÚ full-day aggregates still take priority. If today's ALADIN coverage remains
+incomplete and completion is enabled, the plugin uses Open-Meteo's full-day
+range. With completion off, an available partial ALADIN range is labelled as
+partial in settings and source metadata; Pebble's native bridge may omit that
+label. Future ALADIN daily ranges require complete coverage. The national ČHMÚ
+outlook is not presented as a local forecast.
 
 Conditions use ČHMÚ's published icon meanings where available. Pebble's shared
 condition vocabulary is less detailed, so fog, freezing rain and some severe
@@ -112,6 +123,15 @@ version); the plugin cannot force that importer to run every 30 minutes.
 Station HTTP results can be reused for five minutes and forecasts for
 30 minutes across consumers. The settings Refresh button bypasses those short
 reuse windows; failures retain usable cached data with its original timestamps.
+
+When a weather service supplies an ETag or Last-Modified validator, the next
+check can use a conditional GET. An HTTP 304 reuses the validated body while
+preserving its original download, source and measurement times. It reduces
+response payloads where supported; the inspected ČHMÚ app endpoints support
+this, while the public graphs and Open-Meteo did not provide validators.
+Refresh timing and the six-hour forecast limit stay the same. Responses marked
+`no-store` are not saved as weather bodies or retained forecast context.
+
 Settings distinguish stale readings, network failures and places outside
 coverage. They retain the last successful download time and show the station
 measurement's age. A download time does not replace the measurement timestamp.
@@ -137,7 +157,9 @@ PebbleOS's main Weather screen reads the active hourly slot. In each refreshed
 payload, the plugin puts the same fresh station measurement into that slot and
 the scalar current temperature, so the main screen, detailed report and
 watchface receive a consistent current reading.
-Past and future slots keep their forecasts; the raw model cache is unchanged.
+Past and future slots keep their forecast meaning. Retained context can fill
+missing past slots; current and future slots require usable current forecast
+data. The raw model response is unchanged.
 Per-hour source metadata identifies the blended measurement. Once it expires,
 the slot returns to the model forecast. The built-in weather bridge can discard
 estimate markers and custom source details. The phone app controls native

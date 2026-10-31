@@ -1,4 +1,5 @@
 'use strict';
+var httpCache = require('./http-cache');
 
 // The app backend uses an anonymous per-install device registration. This
 // client owns its identifier and tokens; it never imports the official app's
@@ -105,7 +106,7 @@ function createClient(options) {
       Promise.resolve(promise).then(function(value) { finish(null, value); }, function(error) { finish(error); });
     });
   }
-  async function http(path, method, body, access, budget) {
+  async function http(path, method, body, access, budget, conditional) {
     if (!enabled()) { throw unavailable(); }
     // Do not even start a fetch when another stage used the remaining budget.
     if (options.now() >= budget.endsAt) { throw timeout(); }
@@ -113,10 +114,19 @@ function createClient(options) {
     var init = {method:method, headers:headers};
     if (body !== undefined) { headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
     if (access) { headers.Authorization = 'Bearer ' + access; }
+    if (method === 'GET' && conditional) {
+      Object.keys(conditional).forEach(function(name) { headers[name] = conditional[name]; });
+    }
     var pending;
     try {
       pending = Promise.resolve(options.fetch(API + path, init)).then(function(response) {
+        if (method === 'GET' && response && response.status === 304) { return {response:response, notModified:true}; }
         if (!response || !response.ok) { throw unavailable(response && response.status); }
+        if (method === 'GET') {
+          return Promise.resolve().then(function() { return response.json(); }).then(function(value) {
+            return {response:response, body:value};
+          }).catch(function() { return {response:response, invalid:true}; });
+        }
         return response.json();
       }).catch(function(error) {
         if (error && error.code === 'TIMEOUT') { throw timeout(); }
@@ -210,18 +220,18 @@ function createClient(options) {
     }
     return within(authFlight, budget, DEFAULT_BUDGET);
   }
-  async function get(path, budget) {
+  async function get(path, budget, conditional) {
     var token = await credentials(null, budget);
-    try { return await http(path, 'GET', undefined, token.access_token, budget); }
+    try { return await http(path, 'GET', undefined, token.access_token, budget, conditional); }
     catch (error) {
       if (!error || error.httpStatus !== 401) { throw error; }
       token = await credentials(token.access_token, budget);
       // Exactly one authenticated retry, including when the new token fails.
-      return http(path, 'GET', undefined, token.access_token, budget);
+      return http(path, 'GET', undefined, token.access_token, budget, conditional);
     }
   }
-  function cache(key, body, fetchedAt) {
-    save(CACHE + key, {body:body, fetchedAt:fetchedAt});
+  function cache(key, record) {
+    save(CACHE + key, record);
     var index = load(CACHE + 'index');
     index = (Array.isArray(index) ? index : []).filter(function(item) {
       return typeof item === 'string' && item !== key;
@@ -232,6 +242,16 @@ function createClient(options) {
     }
     save(CACHE + 'index', index);
   }
+  function removeCache(key) {
+    try { storage.removeItem(CACHE + key); } catch (ignored) {}
+    var index = load(CACHE + 'index');
+    if (Array.isArray(index)) { save(CACHE + 'index', index.filter(function(item) { return item !== key; })); }
+  }
+  function cacheFresh(record) {
+    var checked = record.checkedAt === undefined ? record.fetchedAt : record.checkedAt;
+    return !record.noStore && finite(checked) && checked <= options.now() &&
+      options.now() - checked < REFRESH;
+  }
   function validBody(body, kind, point) {
     if (!body || typeof body !== 'object' || (kind === 'uv' ? !Array.isArray(body) || !body.length : Array.isArray(body))) {
       return false;
@@ -240,25 +260,40 @@ function createClient(options) {
     try { return !validate || !!validate(body, options.now(), point); } catch (ignored) { return false; }
   }
   function usable(record, kind, point) {
-    return record && finite(record.fetchedAt) && record.fetchedAt <= options.now() &&
+    return record && !record.noStore && finite(record.fetchedAt) && record.fetchedAt <= options.now() &&
       options.now() - record.fetchedAt < MAX_AGE && validBody(record.body, kind, point);
   }
-  function result(record) { return {value:record.body, fetchedAt:Math.floor(record.fetchedAt / 1000)}; }
+  function result(record) {
+    var value = {value:record.body, fetchedAt:Math.floor(record.fetchedAt / 1000),
+      checkedAt:Math.floor((record.checkedAt === undefined ? record.fetchedAt : record.checkedAt) / 1000)};
+    if (record.noStore) { value.noStore = true; }
+    return value;
+  }
   async function resourceRequest(key, path, force, budget, kind, point) {
     var previous = load(CACHE + key);
-    if (!force && usable(previous, kind, point) && options.now() - previous.fetchedAt < REFRESH) { return result(previous); }
+    if (!force && usable(previous, kind, point) && cacheFresh(previous)) { return result(previous); }
     try {
-      var body = await get(path, budget);
-      if (!validBody(body, kind, point)) { throw unavailable(); }
+      var conditional = usable(previous, kind, point) && previous.requestPath === path ? httpCache.conditionalHeaders(previous) : {};
+      var reply = await get(path, budget, conditional);
       if (!enabled()) { throw unavailable(); }
       if (options.now() >= budget.endsAt) { throw timeout(); }
       var at = options.now();
-      cache(key, body, at);
-      return {value:body, fetchedAt:Math.floor(at / 1000)};
+      var policy = httpCache.policy(reply.response, at, reply.notModified ? previous : null);
+      if (policy.noStore) { removeCache(key); }
+      var record;
+      if (reply.notModified) {
+        if (!Object.keys(conditional).length || !usable(previous, kind, point)) { throw unavailable(); }
+        record = Object.assign({}, previous, policy);
+      } else {
+        if (reply.invalid || !validBody(reply.body, kind, point)) { throw unavailable(); }
+        record = Object.assign({body:reply.body, fetchedAt:at, requestPath:path}, policy);
+      }
+      if (!policy.noStore) { cache(key, record); }
+      return result(record);
     } catch (error) {
       if (!enabled()) { throw unavailable(); }
       // Keep the original retrieval time; failed refreshes cannot extend it.
-      if (usable(previous, kind, point)) { return result(previous); }
+      if (usable(previous, kind, point) && !(typeof policy !== 'undefined' && policy.noStore)) { return result(previous); }
       throw error;
     }
   }
@@ -287,7 +322,7 @@ function createClient(options) {
     }
     var previous = load(CACHE + key);
     // A force refresh must not join a same-turn promise that only reads cache.
-    if (!force && usable(previous, kind, point) && options.now() - previous.fetchedAt < REFRESH) {
+    if (!force && usable(previous, kind, point) && cacheFresh(previous)) {
       return Promise.resolve(result(previous));
     }
     if (!inFlight[key]) {

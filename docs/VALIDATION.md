@@ -1,8 +1,48 @@
 # Beta validation
 
-Version 0.4.0 checked on 31 October 2026. Earlier results below are historical.
+Version 0.5.0 checked on 31 October 2026. Earlier results below are historical.
 
-## 0.4.0 release checks
+## 0.5.0 release checks
+
+- `npm test`: **280 JavaScript tests and 12 Python packaging tests pass**.
+- The phone-only PBW keeps its UUID, four network domains, source choices and
+  existing refresh windows. Its SHA256 is
+  `06f4618132d5d9ad10916a8caebdbc92b2858f6a4d1979104e9569bbda5a814a`.
+  The packaged `plugin.js` SHA256 is
+  `c430949087fa21bf8777049757eb49a20439278a120ded31550eb01dfe6c4465`.
+- Network-free checks execute that exact bundled script. They cover retaining
+  morning forecast context across a two-hour gap and a replacement model run,
+  complete versus cold-start partial daily ranges, original download stamps,
+  and retrospective context older than six hours that cannot supply current or
+  future weather.
+- Conditional-request regressions cover safe validators, HTTP 304 without
+  reading a body, original download/source timestamps, unconditional download
+  after the six-hour reuse limit, changed URLs, malformed responses and
+  `no-store` deletion. Forecast-history tests cover local dates and daylight
+  saving, bounded storage, current-input precedence and delayed replies that
+  cannot resurrect retracted hours. Integration checks cover coalesced requests
+  and history cleanup before an obsolete settings revision can reject output.
+- Isolated live endpoint probes confirmed HTTP 304 support for the ČHMÚ app
+  place and UV services. The inspected public graphs and Open-Meteo responses
+  supplied no ETag or Last-Modified validator, so no conditional-download
+  savings are claimed for those feeds.
+- **The final full live smoke did not pass.** Public ČHMÚ forecast, station,
+  bulk-data and Open-Meteo requests returned HTTP 200, but authenticated app
+  weather requests exceeded the six-second individual deadline. An unchanged
+  retry timed out during login. No request-safety failures were reported.
+  Earlier checks also encountered app daily aggregates older than the existing
+  six-hour source limit; those must remain unavailable rather than be made
+  fresh by a download. The final bundle's end-to-end authenticated 304 path
+  and fresh app daily branch therefore remain unverified live in this release.
+- Settings JavaScript passes a syntax check and matches the PBW entry; the
+  packaged script matches the built JavaScript byte for byte. The PBW is
+  reproducible and the source archive excludes dependencies, credentials and
+  nested release files.
+
+This is a sideloadable beta. No physical phone/watch testing is claimed.
+Native Weather scheduling and display limitations below remain unchanged.
+
+## Historical 0.4.0 release checks
 
 - `npm test`: **223 JavaScript tests and 12 Python packaging tests pass**.
 - `npm run build`: produces the 0.4.0 phone-only PBW with the existing UUID,

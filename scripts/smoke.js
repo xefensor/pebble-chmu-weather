@@ -14,6 +14,7 @@ const {parseObservation} = require('../src/lib/station-observation');
 const {parseUV} = require('../src/lib/app-uv');
 const {parseWeather} = require('../src/lib/app-weather');
 const manifest = require('../package.json').pebble;
+const verifyHistory = require('./smoke-history');
 const ROOT = path.resolve(__dirname, '..');
 const REQUEST = {category:'weather', item:'location'};
 const APP = 'chmu.rails.cz';
@@ -49,6 +50,9 @@ let safetyFailures = 0;
 let loginMetadata = null;
 let phase = 'startup';
 let bundleDigest = null;
+let unexpected304BodyReads = 0;
+const liveLimitations = new Set();
+let appDailySourceUpdate = null;
 
 function callCounts() {
   const grouped = {};
@@ -120,7 +124,10 @@ function requestSafety(url, init) {
     assert.equal(latitude, String(POINT.latitude), 'Remote requests use public forecast-town latitude');
     assert.equal(longitude, String(POINT.longitude), 'Remote requests use public forecast-town longitude');
   }
-  return {host:parsed.hostname, pathname:parsed.pathname, method, status:0};
+  const requestHeaders = Object.fromEntries(Object.entries(init.headers || {}).map(([name,value]) => [name.toLowerCase(),value]));
+  const conditional = !!(requestHeaders['if-none-match'] || requestHeaders['if-modified-since']);
+  assert.ok(!conditional || method === 'GET','Only weather GETs may carry cache validators');
+  return {host:parsed.hostname, pathname:parsed.pathname, method, status:0, conditional};
 }
 function bridge(url, init={}) {
   let record;
@@ -175,8 +182,14 @@ function bridge(url, init={}) {
         bodies.set(url,response.body);
         weatherResponses.push({url,body:response.body});
       }
+      const responseHeaders = Object.fromEntries(Object.entries(response.headers || {}).map(([name,value]) => [name.toLowerCase(),value]));
+      record.hasValidator = !!(responseHeaders.etag || responseHeaders['last-modified']);
       finish(null,{ok:response.status >= 200 && response.status < 300, status:response.status,
-        json:async () => response.body});
+        headers:{get:name => responseHeaders[String(name).toLowerCase()] ?? null},
+        json:async () => {
+          if (response.status === 304) { unexpected304BodyReads++; throw new Error('304 has no JSON body'); }
+          return response.body;
+        }});
     });
     child.stdin.on('error', () => {});
     child.stdin.end(JSON.stringify({url,init}));
@@ -211,6 +224,10 @@ function properties(envelope) {
     assert.ok(active >= 0, 'Measured response must identify its active hourly slot');
     const nextHour = (series.start+(active+1)*series.stepSec)*1000;
     assert.ok(envelope.validUntilMs <= nextHour, 'Native measurement blend must expire by the next hour');
+  }
+  if (p.daily_coverage && p.today_range_complete) {
+    assert.equal(p.daily_coverage.series.longText.values[0],p.today_range_complete.boolean.value ?
+      'Full-day forecast' : 'Partial-day forecast','Daily completeness flag and coverage label must agree');
   }
   return p;
 }
@@ -256,12 +273,19 @@ function verifyMeasured(p) {
   assert.equal(hourly.numericValue.values[active],p.temperature.numericValue.value,
     'Native Weather active hour must match the measured scalar temperature');
   assert.equal(p.hourly_source?.series.longText.values[active],'ČHMÚ station measurement');
-  const forecast = latestBody('data-provider.chmi.cz','/api/graphs/graf.meteogram/75');
   const futureTime = hourly.start + (active+1)*hourly.stepSec;
-  const future = forecast && forecast.data.find(row => Date.parse(row.validityTime)/1000 === futureTime);
-  assert.ok(future && typeof future.t2m === 'number', 'Live ALADIN must supply the next forecast hour');
-  assert.equal(hourly.numericValue.values[active+1],future.t2m,'Future hour must retain its ALADIN forecast');
-  assert.equal(p.hourly_source.series.longText.values[active+1],'ČHMÚ ALADIN forecast');
+  const futureSource = p.hourly_source.series.longText.values[active+1];
+  let expectedFuture;
+  if (futureSource === 'ČHMÚ ALADIN forecast') {
+    const forecast = latestBody('data-provider.chmi.cz','/api/graphs/graf.meteogram/75');
+    expectedFuture = forecast && forecast.data.find(row => Date.parse(row.validityTime)/1000 === futureTime)?.t2m;
+  } else if (futureSource === 'Open-Meteo forecast') {
+    const supplement = latestBody(OM,'/v1/forecast');
+    const index = supplement?.hourly?.time.indexOf(futureTime);
+    if (index >= 0) expectedFuture = supplement.hourly.temperature_2m[index];
+  }
+  assert.equal(typeof expectedFuture,'number','Future hour must have an actual ALADIN or enabled Open-Meteo forecast');
+  assert.equal(hourly.numericValue.values[active+1],expectedFuture,'Future hour must retain its chosen forecast, never retrospective history');
 }
 function verifyComplete(p,withUV=true) {
   verifyMeasured(p);
@@ -272,10 +296,44 @@ function verifyComplete(p,withUV=true) {
   assert.equal(p.hourly_temperature.series.numericValue.values.length,48);
   assert.equal(p.daily_high.series.numericValue.values.length,7);
   assert.equal(p.daily_low.series.numericValue.values.length,7);
+  assert.equal(p.today_range_complete.boolean.value,true,'Enabled completion must supply a full current-day range');
+  assert.equal(p.daily_coverage.series.longText.values[0],'Full-day forecast');
   assert.equal(p.daily_precipitation.series.numericValue.values.length,7);
   assert.ok(p.precipitation.numericValue.value >= 0 && p.precipitation.numericValue.value <= 100);
   assert.match(p.feels_like_source.longText.text,/Calculated shade estimate/);
   assert.ok(p.daily_source.series.longText.values.includes('Open-Meteo'), 'Later local days must come from Open-Meteo');
+}
+function appCacheSnapshot() {
+  const records = new Map();
+  for (const [key,text] of localValues) {
+    if (!key.startsWith('chmu.app.cache.v1.')) continue;
+    let value;
+    try { value = JSON.parse(text); } catch (_) {}
+    if (value && value.body && typeof value.fetchedAt === 'number') records.set(key,value);
+  }
+  return records;
+}
+function verifyRevalidation(before,callStart) {
+  const responses = calls.slice(callStart).filter(call => call.host === APP && call.method === 'GET');
+  const tagged = [...before].filter(([,record]) => record.etag || record.lastModified);
+  if (!tagged.length) return 0;
+  assert.ok(responses.some(call => call.conditional),'Available weather validators must be sent on forced recheck');
+  const revalidated = responses.filter(call => call.status === 304);
+  assert.ok(revalidated.length,'Tagged live app weather must exercise the actual 304 path');
+  let checked = 0;
+  const after = appCacheSnapshot();
+  for (const [key,previous] of tagged) {
+    const route = key.startsWith('chmu.app.cache.v1.uv.') ? '/api/v1/uv_measures' : '/api/v2/places/nearest';
+    if (!revalidated.some(call => call.pathname === route)) continue;
+    const current = after.get(key);
+    assert.ok(current,'A validated weather snapshot must remain usable');
+    assert.equal(current.fetchedAt,previous.fetchedAt,'304 must preserve the original body-download time and six-hour age');
+    assert.ok(current.checkedAt > previous.checkedAt,'304 must advance only the last-check time');
+    assert.equal(JSON.stringify(current.body),JSON.stringify(previous.body),'304 must reuse the already validated body');
+    checked++;
+  }
+  assert.ok(checked,'Live 304 must verify at least one retained app snapshot');
+  return checked;
 }
 function localDateAt(seconds) {
   const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',
@@ -299,7 +357,24 @@ function verifyAppDaily(p) {
   const place = latestBody(APP,'/api/v2/places/nearest');
   assert.ok(place, 'Live authenticated app place request must succeed');
   const daily = parseWeather(place,Date.now(),POINT);
-  assert.ok(daily && daily.days.length === 3, 'Live three-day app aggregates must be fresh; full-day branch cannot be skipped');
+  if (!daily) {
+    const issued = Date.parse(place.updated_at);
+    assert.ok(Number.isFinite(issued) && issued > 0 && Date.now()-issued > 6*3600000,
+      'Only an explicitly stale app source may take the unavailable daily branch');
+    assert.ok(parseWeather(place,issued+1000,POINT),
+      'Stale app daily response must still have valid original shape, dates and nearby coordinates');
+    assert.equal(p.app_forecast_updated_at,undefined,'Stale app daily source must not be emitted');
+    assert.ok(!p.daily_source.series.longText.values.some(source => source === 'ČHMÚ ALADIN (full-day app forecast)'),
+      'Stale app ranges must not replace the valid daily fallback');
+    assert.ok(![...appCacheSnapshot().keys()].some(key => key.startsWith('chmu.app.cache.v1.place.')),
+      'Unusable stale app data must not be added to the weather cache');
+    assert.equal(p.today_range_complete.boolean.value,true,'Enabled completion must still provide an honest full-day fallback');
+    assert.equal(p.daily_coverage.series.longText.values[0],'Full-day forecast');
+    appDailySourceUpdate = place.updated_at;
+    liveLimitations.add('Fresh app daily aggregates unavailable: original update is older than six hours; stale data rejected, daily fallback verified');
+    return;
+  }
+  assert.equal(daily.days.length,3,'Live fresh app source must contain its three local forecast dates');
   assert.equal(p.app_forecast_updated_at.timestamp.value,daily.updatedAt);
   assert.equal(daily.days[0].date,localDateAt(p.daily_high.series.start));
   daily.days.slice(0,3).forEach((day,index) => {
@@ -321,9 +396,17 @@ function publicReading(label,p) {
     uvUpdatedAt:p.uv_updated_at?.timestamp.value,high:p.high?.numericValue.value,low:p.low?.numericValue.value,
     forecastHours:p.hourly_temperature?.series.numericValue.values.length,
     dailyForecasts:p.daily_high?.series.numericValue.values.length,
-    dailySources:p.daily_source?.series.longText.values}));
+    dailySources:p.daily_source?.series.longText.values,coverage:p.daily_coverage?.series.longText.values,
+    retainedForecastHours:p.forecast_history_hours?.numericValue.value}));
 }
 async function main() {
+  const bundle = fs.readFileSync(path.join(ROOT,'build/plugin.js'));
+  bundleDigest = crypto.createHash('sha256').update(bundle).digest('hex');
+  assert.equal(bundleDigest,process.env.CHMU_SMOKE_BUNDLE_SHA256,
+    'Executed bundle must be byte-identical to plugin.js in the built PBW');
+  phase = 'deterministic exact-bundle retained forecast history';
+  const historyCheck = await verifyHistory(bundle.toString('utf8'));
+  console.log(JSON.stringify(historyCheck));
   phase = 'source module with live app authentication';
   const source = createClient(options);
   const sourceP = properties(await source.getWeather(REQUEST,true));
@@ -340,12 +423,10 @@ async function main() {
   await secureStorage.setItem(AUTH_KEY,JSON.stringify({access_token:'smoke.'+
     Buffer.from(JSON.stringify({exp:1})).toString('base64url')+'.expired',refresh_token:tokens.refresh_token}));
   phase = 'bundled plugin authentication refresh';
+  const sourceSnapshots = appCacheSnapshot();
+  const bundleCallStart = calls.length;
   const host = {...pebble,secureStorage,registerSourceHandler:fn => {host.handler=fn;},
     registerConfigHandler:fn => {host.config=fn;},refreshSources:() => {}};
-  const bundle = fs.readFileSync(path.join(ROOT,'build/plugin.js'));
-  bundleDigest = crypto.createHash('sha256').update(bundle).digest('hex');
-  assert.equal(bundleDigest,process.env.CHMU_SMOKE_BUNDLE_SHA256,
-    'Executed bundle must be byte-identical to plugin.js in the built PBW');
   vm.runInNewContext(bundle.toString('utf8'),
     {Pebble:host,localStorage:storage,navigator:{geolocation},fetch:bridge,setTimeout,clearTimeout,
       crypto:{randomUUID:crypto.randomUUID},console,Date});
@@ -375,6 +456,7 @@ async function main() {
     'Bundled plugin must refresh this test installation’s own session');
   assert.equal(ownLoginIds,1,'Bundle must reuse the source run’s own installation instead of creating another');
   publicReading('bundle',p);
+  const revalidatedSnapshots = verifyRevalidation(sourceSnapshots,bundleCallStart);
 
   phase = 'nearby station picker and fixed manual selection';
   let state = await config({type:'getState'});
@@ -477,8 +559,10 @@ async function main() {
   publicReading('chmu-uv-only',p);
   storedTokens();
   assert.equal(safetyFailures,0,'Every live request must satisfy the transport, coordinate and credential checks');
+  assert.equal(unexpected304BodyReads,0,'304 must never be decoded as a fresh JSON body');
   console.log(JSON.stringify({result:'passed',pbwSha256:process.env.CHMU_SMOKE_PBW_SHA256,bundleSha256:bundleDigest,ownInstallationLogins:ownLoginIds,
-    authenticatedWeatherRequests:authenticatedGets,secureCredentialRecords:secretValues.size,requestSafetyFailures:safetyFailures,requests:callCounts()}));
+    authenticatedWeatherRequests:authenticatedGets,secureCredentialRecords:secretValues.size,requestSafetyFailures:safetyFailures,revalidatedSnapshots,historyCheck,liveLimitations:[...liveLimitations],appDailySourceUpdate,
+    conditionalWeatherRequests:calls.filter(call => call.conditional).length,notModifiedResponses:calls.filter(call => call.status === 304).length,requests:callCounts()}));
 }
 main().catch(error => {
   // Do not print exception objects, HTTP bodies, storage or transport input.

@@ -82,10 +82,27 @@ on older runtimes that do not provide it.
 The public ČHMÚ/Open-Meteo resource cache retains at most 16 records, and the
 ČHMÚ app cache retains at most another 16. These records include station/town
 IDs and may include coarse forecast-town or model-grid coordinates and other
-provider response metadata. They are not a raw GPS history and are not uploaded
-to the developer. Diagnostics contain the place and station names,
+provider response metadata. Cache metadata can also contain HTTP validators
+(ETag or Last-Modified), the last check time and the original body-download time.
+They are not a raw GPS history and are not uploaded to the developer. Diagnostics contain the place and station names,
 measurement time and age, displayed weather, source information, original UV
 update time, eligible nearby station choices, status and last successful update. They do not display service credentials.
+
+A separate bounded history retains already-past ALADIN forecast temperature
+and condition values for today's Prague date: at most 16 public forecast points
+and 25 hourly samples per point. Records use the public point ID and coordinates,
+date and original forecast download time. They contain no phone GPS history or
+station measurements. A later model run can use them only as past forecast
+context. Previous-day records are removed when the history is next accessed.
+
+Conditional GETs send a weather response's ETag or Last-Modified value back to
+the same service when rechecking it. They do not change the selected locations
+or services. A 304 updates the check time without changing data ages. Weather
+responses marked `no-store` are not persisted as reusable weather bodies.
+Their values can still appear in the current reply and derived diagnostics.
+An ALADIN `no-store` response also removes that public point's retained forecast
+context.
+Installation login/refresh and secure credential handling are unchanged.
 
 Feels-like temperature and sunrise/sunset are calculated inside the plugin.
 Those calculations do not contact an additional service. Removing the plugin

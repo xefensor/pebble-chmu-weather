@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.0 beta
+
+- Adds conditional weather GETs using service-provided ETag or Last-Modified
+  validators at the existing refresh windows and on manual Refresh.
+- Reuses validated bodies on HTTP 304 without renewing their original download,
+  source or measurement timestamps, or the six-hour forecast reuse limit.
+- Avoids persisting weather bodies and retained context marked `no-store`.
+- Retains bounded already-past ALADIN temperature/condition forecasts for today's
+  Prague date, so a later run can recover morning context previously downloaded.
+  Retained context never supplies observations or current/future forecasts.
+- Keeps full ČHMÚ app daily aggregates first. If today's ALADIN coverage is still
+  incomplete, uses a full Open-Meteo day when completion is on; otherwise labels
+  an available partial range honestly.
+- Preserves the existing providers, permissions, authentication and host-driven
+  native Weather refresh schedule.
+
+
 ## 0.4.0 beta
 
 - Adds measured humidity and wind from the same station and timestamp as the

@@ -482,7 +482,9 @@ test('Open-Meteo completion uses catalogue coordinates while keeping ČHMÚ curr
   assert.equal(p.precipitation.numericValue.value,0,'zero precipitation probability is valid');
   assert.deepEqual(p.daily_precipitation.series.numericValue.values,[0,10,20,30,40,50,60]);
   assert.equal(p.daily_high.series.numericValue.values.length,7);
-  assert.equal(p.daily_high.series.numericValue.values[0],5,'ALADIN is retained where available');
+  assert.equal(p.daily_high.series.numericValue.values[0],22,'a complete daily range fills the missing ALADIN morning');
+  assert.equal(p.daily_source.series.longText.values[0],'Open-Meteo');
+  assert.equal(p.daily_high.series.numericValue.values[1],5,'complete ALADIN days retain priority');
   assert.equal(p.daily_high.series.numericValue.values[6],22,'completion extends the daily forecast');
   assert.ok(Number.isFinite(p.feels_like.numericValue.value));
   assert.equal(p.feels_like.numericValue.unit,'°C');
@@ -1191,4 +1193,196 @@ test('An automatic station change never reuses another station original-sample d
   assert.equal(d.latestSampleAt,null);
   assert.equal(d.latestSampleStationId,'');
   assert.equal(d.lastSuccessfulFetch,null);
+});
+
+function weatherResponse(body,status=200,fields={}) {
+  return {ok:status>=200&&status<300,status,
+    headers:{get:name=>Object.entries(fields).find(([key])=>key.toLowerCase()===name.toLowerCase())?.[1]||null},
+    json:async()=>copy(body)};
+}
+
+test('Weather 304 validates without JSON or changing source/download timestamps, and old measurements still expire', async()=>{
+  let conditional=false;
+  let jsonCalls=0;
+  const requests=[];
+  const f=fixture({http:async(url,state,init)=>{
+    requests.push({url,init});
+    if(url.includes('opendata.chmi.cz')) return weatherResponse(null,503);
+    if(conditional) return {...weatherResponse(null,304),json:()=>{jsonCalls++;throw new Error('304 cannot have JSON');}};
+    return weatherResponse(url.includes('graf.meteogram/')?forecast():measured(),200,
+      {ETag:'"'+(url.includes('graf.meteogram/')?'forecast':'station')+'"'});
+  }});
+  const first=await f.client.getWeather(REQUEST);
+  const observedAt=first.instances[0].properties.observed_at.timestamp.value;
+  conditional=true;
+  f.setNow(NOW+31*60000);
+  const second=await f.client.getWeather(REQUEST,true);
+  const p=second.instances[0].properties;
+  assert.equal(jsonCalls,0);
+  assert.equal(p.temperature.numericValue.value,6.8);
+  assert.equal(p.observed_at.timestamp.value,observedAt);
+  assert.equal(p.forecast_updated_at.timestamp.value,NOW/1000);
+  assert.equal(f.client.state().locations[0].lastSuccessfulFetch,NOW/1000,'304 is verification, not a body download');
+  for(const request of requests.slice(2)) assert.match(request.init.headers['If-None-Match'],/^"(?:forecast|station)"$/);
+  const record=JSON.parse(f.values.get('chmu.cache.v1.forecast.75'));
+  assert.equal(record.fetchedAt,NOW);
+  assert.equal(record.checkedAt,NOW+31*60000);
+  f.setNow(NOW+51*60000);
+  const expired=(await f.client.getWeather(REQUEST,true)).instances[0].properties;
+  assert.equal(expired.is_forecast.boolean.value,true,'old station sample cannot become current because it received a 304');
+  assert.equal(expired.observed_at,undefined);
+  assert.equal(f.client.state().locations[0].stationStatus,'stale');
+  assert.equal(f.client.state().locations[0].latestSampleAt,observedAt);
+  assert.equal(f.client.state().locations[0].lastSuccessfulFetch,NOW/1000);
+});
+
+test('Expired forecast cache sends an unconditional request despite recent verification metadata', async()=>{
+  const requests=[];
+  const f=fixture({http:async(url,state,init)=>{
+    requests.push({url,init});
+    return weatherResponse(url.includes('graf.meteogram/')?forecast():measured(),200,{ETag:'"old"'});
+  }});
+  await f.client.getWeather(REQUEST);
+  const key='chmu.cache.v1.forecast.75';
+  const record=JSON.parse(f.values.get(key));
+  record.checkedAt=NOW+5*HOUR+59*60000;
+  f.values.set(key,JSON.stringify(record));
+  f.setNow(NOW+6*HOUR);
+  await f.client.getWeather(REQUEST);
+  const forecastRequest=requests.filter(item=>item.url.includes('graf.meteogram/')).at(-1);
+  assert.equal(forecastRequest.init,undefined,'maximum download age overrides recent304 verification');
+  assert.equal(JSON.parse(f.values.get(key)).fetchedAt,NOW+6*HOUR);
+});
+
+test('Malformed conditional replacement JSON preserves the prior validated weather body and validators', async()=>{
+  let bad=false;
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteogram/')) return weatherResponse(bad?{data:[]}:forecast(),200,{ETag:bad?'"bad"':'"good"'});
+    return weatherResponse(measured());
+  }});
+  await f.client.getWeather(REQUEST);
+  const previous=f.values.get('chmu.cache.v1.forecast.75');
+  bad=true;
+  f.setNow(NOW+31*60000);
+  const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.temperature.numericValue.value,6.8);
+  assert.equal(f.values.get('chmu.cache.v1.forecast.75'),previous);
+});
+
+test('No-store weather responses remove previous snapshots and are never persisted', async()=>{
+  let noStore=false;
+  const f=fixture({http:async url=>weatherResponse(url.includes('graf.meteogram/')?forecast():measured(),200,
+    noStore?{'Cache-Control':'private, no-store',ETag:'"private"'}:{ETag:'"public"'})});
+  await f.client.getWeather(REQUEST);
+  assert.ok(f.values.has('chmu.cache.v1.forecast.75'));
+  noStore=true;
+  await f.client.getWeather(REQUEST,true);
+  const records=[...f.values.keys()].filter(key=>key.startsWith('chmu.cache.v1.')&&key!=='chmu.cache.v1.index');
+  assert.deepEqual(records,[]);
+  const before=f.urls.length;
+  await f.client.getWeather(REQUEST);
+  assert.equal(f.urls.length,before+2,'both weather bodies must be fetched again');
+});
+
+test('Short server caching directives do not increase station or forecast application refresh frequency', async()=>{
+  const f=fixture({http:async url=>weatherResponse(url.includes('graf.meteogram/')?forecast():measured(),200,
+    {'Cache-Control':'private, max-age=180, must-revalidate, no-cache','Expires':'Sat, 31 Oct 2026 08:03:00 GMT',ETag:'"short"'})});
+  await f.client.getWeather(REQUEST);
+  f.setNow(NOW+4*60000);
+  await f.client.getWeather(REQUEST);
+  assert.equal(f.urls.length,2,'station retains5-minute reuse despite max-age180');
+  f.setNow(NOW+10*60000);
+  await f.client.getWeather(REQUEST);
+  assert.equal(f.urls.filter(url=>url.includes('graf.meteogram/')).length,1,'forecast retains30-minute reuse');
+  f.setNetwork(false);
+});
+
+test('A 304 without any cached weather body is handled without attempting JSON parsing', async()=>{
+  let reads=0;
+  const f=fixture({http:async()=>({...weatherResponse(null,304),json:()=>{reads++;throw new Error('no body');}})});
+  await assert.rejects(f.client.getWeather(REQUEST),error=>error.code==='PLUGIN_UNAVAILABLE');
+  assert.equal(reads,0);
+  assert.equal([...f.values.keys()].some(key=>key.startsWith('chmu.cache.v1.')&&key!=='chmu.cache.v1.index'),false);
+});
+
+test('Same-turn forced weather refresh revalidates rather than joining a cached-only read', async()=>{
+  let verifying=false;
+  const requests=[];
+  const f=fixture({http:async(url,state,init)=>{
+    requests.push({url,init});
+    return verifying ? weatherResponse(null,304) : weatherResponse(url.includes('graf.meteogram/')?forecast():measured(),200,{ETag:'"same"'});
+  }});
+  await f.client.getWeather(REQUEST);
+  verifying=true;
+  await Promise.all([f.client.getWeather(REQUEST),f.client.getWeather(REQUEST,true)]);
+  assert.equal(requests.length,4);
+  assert.ok(requests.slice(2).every(request=>request.init.headers['If-None-Match']==='"same"'));
+});
+
+test('A later model run retains the cached morning before replacement, including hours that were previously current or future', async()=>{
+  const f=fixture();
+  const full=forecast();
+  full.data=full.data.map((row,index)=>({...row,
+    validityTime:new Date(Date.parse(row.validityTime)-HOUR).toISOString(),t2m:index===2?-9:5}));
+  f.setForecast(full);
+  const first=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(first.low.numericValue.value,-9);
+  assert.equal(first.today_range_complete.boolean.value,true);
+  f.setNow(NOW+2*HOUR);
+  const fresh=copy(observationFixture);
+  fresh.dataPoints.forEach(row=>{row.timestamp=new Date(Date.parse(row.timestamp)+2*HOUR).toISOString();});
+  f.setGraph(fresh);
+  f.setForecast({...full,data:full.data.filter(row=>Date.parse(row.validityTime)>=NOW+2*HOUR).map(row=>({...row,t2m:15}))});
+  f.restart();
+  const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.temperature.numericValue.value,6.8);
+  assert.equal(p.low.numericValue.value,-9,'the vanished morning retains its earlier forecast low');
+  assert.equal(p.high.numericValue.value,15);
+  assert.equal(p.forecast_history_hours.numericValue.value,11,'pre-refresh seeding includes previously-current/future hours that are now past');
+  assert.equal(p.forecast_history_oldest_download.timestamp.value,NOW/1000);
+  assert.equal(p.today_range_complete.boolean.value,true);
+  assert.match(p.daily_source.series.longText.values[0],/retained forecast/);
+  const active=Math.floor(((NOW+2*HOUR)/1000-p.hourly_temperature.series.start)/3600);
+  assert.equal(p.hourly_temperature.series.numericValue.values[active],6.8);
+  assert.equal(p.hourly_temperature.series.numericValue.values[active+1],15);
+  const raw=JSON.parse(f.values.get('chmu.cache.v1.forecast.75')).body;
+  assert.ok(raw.data.every(row=>Date.parse(row.validityTime)>=NOW+2*HOUR),'retention never modifies the raw model cache');
+  assert.equal(f.client.state().locations[0].retainedForecastHours,11);
+});
+
+test('Even an unusable no-store ALADIN replacement removes its previously retained point history', async()=>{
+  let bad=false;
+  const f=fixture({http:async url=>url.includes('graf.meteogram/')?
+    weatherResponse(bad?{data:[]}:forecast(),200,bad?{'Cache-Control':'no-store'}:{}):weatherResponse(measured())});
+  await f.client.getWeather(REQUEST);
+  assert.equal(JSON.parse(f.values.get('chmu.forecast-history.v1')).records.length,1);
+  bad=true;
+  const p=(await f.client.getWeather(REQUEST,true)).instances[0].properties;
+  assert.equal(p.temperature.numericValue.value,6.8);
+  assert.equal(p.forecast_history_hours,undefined);
+  assert.deepEqual(JSON.parse(f.values.get('chmu.forecast-history.v1')).records,[]);
+  assert.equal(f.values.has('chmu.cache.v1.forecast.75'),false);
+});
+
+test('No-store history cleanup happens before a later cross-session settings change can discard publication', async()=>{
+  let updating=false,release;
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteogram/')) return weatherResponse(forecast(),200,updating?{'Cache-Control':'no-store'}:{});
+    if(updating) return new Promise(resolve=>{release=()=>resolve(weatherResponse(measured()));});
+    return weatherResponse(measured());
+  }});
+  await f.client.getWeather(REQUEST);
+  assert.equal(JSON.parse(f.values.get('chmu.forecast-history.v1')).records.length,1);
+  updating=true;
+  const original=f.client;
+  const pending=original.getWeather(REQUEST,true);
+  const rejected=assert.rejects(pending,error=>error.code==='PLUGIN_UNAVAILABLE');
+  await flush();
+  assert.equal(typeof release,'function');
+  assert.deepEqual(JSON.parse(f.values.get('chmu.forecast-history.v1')).records,[],'retention is removed while the unrelated observation is still pending');
+  f.restart();
+  f.client.setUVSource('chmu');
+  release();
+  await rejected;
+  assert.deepEqual(JSON.parse(f.values.get('chmu.forecast-history.v1')).records,[]);
 });

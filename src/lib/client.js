@@ -5,6 +5,8 @@ var createAppClient = require('./app-client').createClient;
 var parseAppUV = require('./app-uv').parseUV;
 var parseAppWeather = require('./app-weather').parseWeather;
 var parseStationObservation = require('./station-observation').parseObservation;
+var httpCache = require('./http-cache');
+var createHistory = require('./forecast-history').createHistory;
 var buildInstance = require('./envelope').buildInstance;
 var REFRESH = 30 * 60000;
 var MAX_FORECAST_AGE = 6 * 3600000;
@@ -22,6 +24,7 @@ module.exports = function(options) {
   var storage = options.storage;
   var catalog = options.catalog;
   var inFlight = {};
+  var forecastHistory = createHistory({storage:storage, now:options.now});
   var appClient = createAppClient(Object.assign({}, options, {
     isEnabled:function() { var selected = settings(); return selected.appData || selected.uvSource === 'chmu'; },
     validateUV:function(body, now, point) { return !!parseAppUV(body, now, point); },
@@ -128,45 +131,86 @@ module.exports = function(options) {
     }
     save(PREFIX + 'index', index);
   }
-  async function httpJson(url, budget) {
+  function removeCache(key) {
+    try { storage.removeItem(PREFIX + key); } catch (ignored) {}
+    var index = load(PREFIX + 'index', []);
+    if (Array.isArray(index)) { save(PREFIX + 'index', index.filter(function(item) { return item !== key; })); }
+  }
+  function cacheFresh(record, ttl) {
+    var checked = record.checkedAt === undefined ? record.fetchedAt : record.checkedAt;
+    return !record.noStore && typeof checked === 'number' && isFinite(checked) &&
+      checked <= options.now() && options.now() - checked < ttl;
+  }
+  function resourceResult(value, record) {
+    var result = {value:value, fetchedAt:Math.floor(record.fetchedAt / 1000),
+      checkedAt:Math.floor((record.checkedAt === undefined ? record.fetchedAt : record.checkedAt) / 1000)};
+    if (record.noStore) { result.noStore = true; }
+    return result;
+  }
+  async function httpJson(url, budget, headers) {
     return deadline(function(resolve, reject) {
-      options.fetch(url).then(function(response) {
+      options.fetch(url, Object.keys(headers).length ? {headers:headers} : undefined).then(function(response) {
+        if (response.status === 304) { return {response:response, notModified:true}; }
         if (!response.ok) { throw {code:'PLUGIN_UNAVAILABLE', message:'Weather HTTP ' + response.status}; }
-        return response.json();
-      }).then(function(body) {
-        // Some ČHMÚ graph/POI endpoints encode their JSON as a JSON string.
-        if (typeof body === 'string') { body = JSON.parse(body); }
-        resolve(body);
-      }).catch(reject);
+        return Promise.resolve().then(function() { return response.json(); }).then(function(body) {
+          // Some ČHMÚ graph/POI endpoints encode their JSON as a JSON string.
+          if (typeof body === 'string') { body = JSON.parse(body); }
+          return {response:response, body:body};
+        }).catch(function() { return {response:response, invalid:true}; });
+      }).then(resolve, reject);
     }, 6000, budget);
+  }
+  function parsedRecord(record, maxAge, parse) {
+    if (!record || record.noStore || typeof record.fetchedAt !== 'number' || !isFinite(record.fetchedAt) || record.fetchedAt > options.now() ||
+        options.now() - record.fetchedAt >= maxAge) { return null; }
+    try { return parse(record.body); } catch (ignored) { return null; }
   }
   async function resourceRequest(key, url, ttl, maxAge, parse, force, budget) {
     var saved = load(PREFIX + key, null);
-    function parsed(record) {
-      if (!record || typeof record.fetchedAt !== 'number' || record.fetchedAt > options.now() ||
-          options.now() - record.fetchedAt >= maxAge) { return null; }
-      try { return parse(record.body); } catch (ignored) { return null; }
-    }
+    function parsed(record) { return parsedRecord(record, maxAge, parse); }
     var previous = parsed(saved);
-    if (!force && previous && options.now() - saved.fetchedAt < ttl) {
-      return {value:previous, fetchedAt:Math.floor(saved.fetchedAt / 1000)};
+    if (!force && previous && cacheFresh(saved, ttl)) {
+      return resourceResult(previous, saved);
     }
     try {
-      var body = await httpJson(url, budget);
-      var value = parse(body);
+      var conditional = previous && saved.requestUrl === url ? httpCache.conditionalHeaders(saved) : {};
+      var reply = await httpJson(url, budget, conditional);
+      var policy = httpCache.policy(reply.response, options.now(), reply.notModified ? saved : null);
+      if (policy.noStore) { removeCache(key); }
+      var record;
+      var value;
+      if (reply.notModified) {
+        // The cached source must still be valid NOW. A slow 304 cannot revive
+        // an expired observation or reset the maximum body-download age.
+        value = Object.keys(conditional).length ? parsed(saved) : null;
+        if (!value) { throw {code:'PLUGIN_UNAVAILABLE', message:'No usable ČHMÚ data'}; }
+        record = Object.assign({}, saved, policy);
+      } else {
+        value = !reply.invalid && parse(reply.body);
+        record = Object.assign({body:reply.body, fetchedAt:options.now(), requestUrl:url}, policy);
+      }
       if (!value) { throw {code:'PLUGIN_UNAVAILABLE', message:'No usable ČHMÚ data'}; }
-      var fetchedAt = options.now();
-      cache(key, {body:body, fetchedAt:fetchedAt});
-      return {value:value, fetchedAt:Math.floor(fetchedAt / 1000)};
+      if (!policy.noStore) { cache(key, record); }
+      return resourceResult(value, record);
     } catch (error) {
       // Recheck measurement time after a slow request. A cached observation can
       // expire during a timeout and must not become current again.
       previous = parsed(saved);
-      if (previous) { return {value:previous, fetchedAt:Math.floor(saved.fetchedAt / 1000)}; }
+      if (previous && !(typeof policy !== 'undefined' && policy.noStore)) { return resourceResult(previous, saved); }
+      if (typeof policy !== 'undefined' && policy.noStore) {
+        throw {code:'PLUGIN_UNAVAILABLE', message:'No usable ČHMÚ data', noStore:true};
+      }
       throw error;
     }
   }
   function resource(key, url, ttl, maxAge, parse, force, budget) {
+    // A force refresh may join a real network request, but must not join a
+    // same-turn promise whose only work was returning a cached snapshot.
+    if (!force) {
+      var saved = load(PREFIX + key, null);
+      var value = parsedRecord(saved, maxAge, parse);
+      if (value && cacheFresh(saved, ttl)) { return Promise.resolve(resourceResult(value, saved)); }
+    }
     if (inFlight[key]) {
       // Another request may have started this fetch later with a longer budget.
       // Its useful work can continue, but this caller must still reply on time.
@@ -265,11 +309,20 @@ module.exports = function(options) {
     function appResource(method, parser, enabled) {
       if (!enabled) { return Promise.resolve({value:null, fetchedAt:0}); }
       return appClient[method](point.point, force, appBudget).then(function(result) {
-        return {value:parser(result.value, options.now(), point.point), fetchedAt:result.fetchedAt};
+        return Object.assign({}, result, {value:parser(result.value, options.now(), point.point)});
       }).catch(function() { return {value:null, fetchedAt:0}; });
     }
     var appUVPromise = appResource('uv', parseAppUV, uvSource === 'chmu');
     var appForecastPromise = appResource('place', parseAppWeather, appData);
+    // Some hours that were future/current in the last downloaded run are now
+    // past. Retain them before a new run replaces the raw response cache.
+    var previousForecast = load(PREFIX + 'forecast.' + point.point.id, null);
+    var previousModel = parsedRecord(previousForecast, MAX_FORECAST_AGE, function(body) {
+      return model.parseForecast(body, options.now());
+    });
+    if (previousModel) {
+      forecastHistory.merge(point.point, previousModel, Math.floor(previousForecast.fetchedAt / 1000));
+    }
     var forecastPromise = resource('forecast.' + point.point.id, API + 'graf.meteogram/' +
       encodeURIComponent(point.point.id), REFRESH, MAX_FORECAST_AGE,
       function(body) { return model.parseForecast(body, options.now()); }, force, budget);
@@ -295,7 +348,11 @@ module.exports = function(options) {
     var obsPromise = nearby ? start(nearby, selection) : Promise.resolve(null);
     var forecast;
     try { forecast = await forecastPromise; }
-    catch (error) { forecast = {value:{hours:[]}, fetchedAt:0}; }
+    catch (error) { forecast = {value:{hours:[]}, fetchedAt:0, noStore:error && error.noStore === true}; }
+    // Cache-policy cleanup applies even if settings later invalidate this
+    // pending request's output. Do it before waiting for other channels.
+    var noStoreHistory = forecast.noStore === true ?
+      forecastHistory.merge(point.point, forecast.value, forecast.fetchedAt, {noStore:true}) : null;
     var suitable = eligible;
     if (!override && typeof forecast.value.elevation === 'number') {
       suitable = eligible.filter(function(candidate) {
@@ -363,7 +420,10 @@ module.exports = function(options) {
     // A settings change can happen while any network channel is pending. Do
     // not publish an old-mode response or put it back into source diagnostics.
     if (generation !== settings().revision) { return null; }
-    var instance = buildInstance({place:place, forecast:forecast.value,
+    var retained = noStoreHistory || forecastHistory.merge(point.point, forecast.value, forecast.fetchedAt);
+    // Coalesced consumers can share forecast.value: never add history to it.
+    var displayForecast = Object.assign({}, forecast.value, retained);
+    var instance = buildInstance({place:place, forecast:displayForecast,
       supplemental:extra.value, supplementalFetchedAt:extra.fetchedAt,
       uvSource:uvSource,
       appUV:appResults[0].value, appUVFetchedAt:appResults[0].fetchedAt,
@@ -421,6 +481,11 @@ module.exports = function(options) {
         uvSource === 'open-meteo' && !completeWeather ? 'Open-Meteo UV requires the Open-Meteo supplement to be enabled' :
         uvSource === 'chmu' ? 'ČHMÚ clear-sky UV forecast unavailable for today' : 'Open-Meteo UV forecast unavailable for today',
       appForecastUpdatedAt:properties.app_forecast_updated_at && properties.app_forecast_updated_at.timestamp.value,
+      appDataLastChecked:Math.max(appResults[0].value && appResults[0].checkedAt || 0,
+        appResults[1].value && appResults[1].checkedAt || 0) || null,
+      retainedForecastHours:properties.forecast_history_hours && properties.forecast_history_hours.numericValue.value || 0,
+      forecastHistoryOldestDownload:properties.forecast_history_oldest_download && properties.forecast_history_oldest_download.timestamp.value,
+      todayRangeComplete:properties.today_range_complete ? properties.today_range_complete.boolean.value : null,
       appDataStatus:!appData ? 'ČHMÚ full-day forecasts disabled' :
         !appResults[1].value ? 'ČHMÚ full-day forecasts unavailable; using other enabled sources' : '',
       precipitation:properties.precipitation && properties.precipitation.numericValue.value,
@@ -491,7 +556,7 @@ module.exports = function(options) {
     var locations = Object.values(load(STATUS, {})).filter(function(value) {
       return value && (value.settingsRevision || 0) === selected.revision;
     });
-    return {version:'0.4.0', settings:selected, locations:locations};
+    return {version:'0.5.0', settings:selected, locations:locations};
   }
   function setStation(locationId, stationId) {
     if (typeof locationId !== 'string' || !locationId || locationId.length > 128 ||

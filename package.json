@@ -1,6 +1,6 @@
 {
   "name": "pebble-chmu-weather",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
   "author": "Xef",
   "license": "SEE LICENSE IN LICENSE",
@@ -214,6 +214,18 @@
             ],
             "wind_observed_at": [
               "timestamp"
+            ],
+            "forecast_history_hours": [
+              "numericValue"
+            ],
+            "forecast_history_oldest_download": [
+              "timestamp"
+            ],
+            "today_range_complete": [
+              "boolean"
+            ],
+            "daily_coverage": [
+              "series.longText"
             ]
           }
         }

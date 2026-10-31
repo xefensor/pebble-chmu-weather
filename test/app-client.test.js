@@ -12,7 +12,9 @@ const INSTALL = 'chmu.app.install.v1';
 const CACHE = 'chmu.app.cache.v1.';
 const copy = value => JSON.parse(JSON.stringify(value));
 const tokens = number => ({access_token:'access-' + number, refresh_token:'refresh-' + number});
-const response = (body, status=200) => ({ok:status>=200 && status<300, status, json:async()=>copy(body)});
+const response = (body, status=200, fields={}) => ({ok:status>=200 && status<300, status,
+  headers:{get:name=>Object.entries(fields).find(([key])=>key.toLowerCase()===name.toLowerCase())?.[1] || null},
+  json:async()=>copy(body)});
 const jwt = exp => 'header.' + Buffer.from(JSON.stringify({exp})).toString('base64url') + '.signature';
 const deferred = () => { let resolve; const promise=new Promise(r=>{ resolve=r; }); return {promise,resolve}; };
 async function flush() { for (let i=0;i<80;i++) await Promise.resolve(); }
@@ -463,4 +465,170 @@ test('Invalid refresh followed by refused registration never repeats the registr
   }});
   await assert.rejects(f.client.uv(POINT),error=>error.code==='PLUGIN_UNAVAILABLE');
   assert.deepEqual(f.calls.map(c=>c.path),['v1/jwt/verify_refresh_token','v1/jwt/login']);
+});
+
+test('Conditional UV 304 skips JSON, preserves original download age and reuses its verified local window', async()=>{
+  let count=0;
+  let jsonCalls=0;
+  const f=fixture({http:call=>{
+    if(call.path!=='v1/uv_measures') return;
+    count++;
+    if(count===1) return response([{value:1.5}],200,{ETag:'"uv-one"','Last-Modified':'Sat, 31 Oct 2026 07:00:00 GMT'});
+    if(count===2) return {...response(null,304,{ETag:'"uv-one"'}),json:()=>{jsonCalls++;throw new Error('304 has no JSON');}};
+    assert.equal(call.init.headers['If-None-Match'],undefined,'six-hour-old body must be downloaded unconditionally');
+    return response([{value:2}],200,{ETag:'"uv-two"'});
+  }});
+  const original=await f.client.uv(POINT);
+  f.setNow(NOW+29*60000);
+  await f.client.uv(POINT);
+  assert.equal(count,1);
+  f.setNow(NOW+31*60000);
+  const verified=await f.client.uv(POINT);
+  const get=f.calls[f.calls.length-1];
+  assert.equal(get.init.headers['If-None-Match'],'"uv-one"');
+  assert.equal(get.init.headers['If-Modified-Since'],undefined,'ETag takes precedence');
+  assert.equal(get.init.headers.Authorization,'Bearer access-1');
+  assert.equal(verified.fetchedAt,original.fetchedAt);
+  assert.equal(verified.checkedAt,(NOW+31*60000)/1000);
+  assert.equal(verified.value[0].value,1.5);
+  assert.equal(jsonCalls,0);
+  f.setNow(NOW+59*60000);
+  assert.deepEqual(await f.client.uv(POINT),verified);
+  assert.equal(count,2);
+  f.setNow(NOW+6*3600000);
+  const changed=await f.client.uv(POINT);
+  assert.equal(changed.value[0].value,2);
+  assert.equal(changed.fetchedAt,(NOW+6*3600000)/1000);
+  assert.equal(count,3);
+  assert.equal(f.calls.filter(c=>c.init.method==='POST').length,1,'conditional weather never changes JWT POST requests');
+});
+
+test('Last-Modified validates a place response and a changed 200 replaces body and validator together', async()=>{
+  let count=0;
+  const f=fixture({http:call=>{
+    if(call.path!=='v2/places/nearest') return;
+    count++;
+    if(count===1) return response({id:75,high:8},200,{'Last-Modified':'Sat, 31 Oct 2026 07:00:00 GMT'});
+    assert.equal(call.init.headers['If-Modified-Since'],'Sat, 31 Oct 2026 07:00:00 GMT');
+    return response({id:75,high:9},200,{ETag:'W/"place-new"'});
+  }});
+  await f.client.place(POINT);
+  f.setNow(NOW+1000);
+  const changed=await f.client.place(POINT,true);
+  assert.equal(changed.value.high,9);
+  assert.equal(changed.fetchedAt,NOW/1000+1);
+  const record=JSON.parse(f.values.get(CACHE+'place.48.975,14.476'));
+  assert.equal(record.etag,'W/"place-new"');
+  assert.equal(record.lastModified,null,'a replacement does not retain a validator from another body');
+});
+
+test('Source validation is repeated after 304 and cannot renew an expired original sample', async()=>{
+  const held=deferred();
+  let count=0;
+  const f=fixture({options:{validateUV:(body,now)=>now<NOW+31*60000+1000},http:call=>{
+    if(call.path!=='v1/uv_measures') return;
+    return ++count===1 ? response([{value:1}],200,{ETag:'"sample"'}) : held.promise;
+  }});
+  await f.client.uv(POINT);
+  const stored=f.values.get(CACHE+'uv.48.975,14.476');
+  f.setNow(NOW+31*60000);
+  const pending=f.client.uv(POINT);
+  const rejected=assert.rejects(pending,error=>error.code==='PLUGIN_UNAVAILABLE');
+  await flush();
+  f.setNow(NOW+31*60000+2000);
+  held.resolve(response(null,304));
+  await rejected;
+  assert.equal(f.values.get(CACHE+'uv.48.975,14.476'),stored,'invalid304 never resets checkedAt or source age');
+});
+
+test('An invalid cached source sends no validator and a 304 without usable cache fails safely', async()=>{
+  let count=0;
+  const f=fixture({options:{validateUV:body=>body[0].value===1},http:call=>{
+    if(call.path!=='v1/uv_measures') return;
+    count++;
+    if(count===1) return response([{value:1}],200,{ETag:'"old"'});
+    assert.equal(call.init.headers['If-None-Match'],undefined);
+    return {...response(null,304),json:()=>{throw new Error('must not read 304');}};
+  }});
+  await f.client.uv(POINT);
+  const key=CACHE+'uv.48.975,14.476';
+  const record=JSON.parse(f.values.get(key));
+  record.body=[{value:'bad'}];
+  f.values.set(key,JSON.stringify(record));
+  await assert.rejects(f.client.uv(POINT,true),error=>error.code==='PLUGIN_UNAVAILABLE');
+  const empty=fixture({http:call=>call.path==='v1/uv_measures' ? response(null,304) : undefined});
+  await assert.rejects(empty.client.uv(POINT),error=>error.code==='PLUGIN_UNAVAILABLE');
+  assert.equal([...empty.values.keys()].some(key=>key.startsWith(CACHE)),false);
+});
+
+test('Malformed conditional 200 preserves the old validated body and its original metadata', async()=>{
+  let count=0;
+  const f=fixture({options:{validateUV:body=>typeof body[0].value==='number'},http:call=>{
+    if(call.path!=='v1/uv_measures') return;
+    return ++count===1 ? response([{value:1}],200,{ETag:'"good"'}) : response([{value:'bad'}],200,{ETag:'"bad"'});
+  }});
+  const original=await f.client.uv(POINT);
+  const raw=f.values.get(CACHE+'uv.48.975,14.476');
+  f.setNow(NOW+31*60000);
+  assert.deepEqual(await f.client.uv(POINT),original);
+  assert.equal(f.values.get(CACHE+'uv.48.975,14.476'),raw);
+});
+
+test('No-store removes old weather records while other HTTP cache directives preserve the existing snapshot window', async()=>{
+  let count=0;
+  const f=fixture({http:call=>{
+    if(call.path!=='v1/uv_measures') return;
+    return ++count===1
+      ? response([{value:1}],200,{ETag:'"old"','Cache-Control':'private, max-age=180, no-cache','Expires':'Sat, 31 Oct 2026 08:03:00 GMT'})
+      : response([{value:2}],200,{'Cache-Control':'no-store',ETag:'"private"'});
+  }});
+  await f.client.uv(POINT);
+  f.setNow(NOW+10*60000);
+  await f.client.uv(POINT);
+  assert.equal(count,1,'server max-age/no-cache do not increase the established 30-minute weather downloads');
+  f.setNow(NOW+31*60000);
+  assert.equal((await f.client.uv(POINT)).value[0].value,2);
+  assert.equal(f.values.has(CACHE+'uv.48.975,14.476'),false);
+  assert.deepEqual(JSON.parse(f.values.get(CACHE+'index')),[]);
+  await f.client.uv(POINT);
+  assert.equal(count,3,'a no-store response is not retained even within the local refresh window');
+});
+
+test('No-store on 304 returns the validated original body once and removes its stored copy', async()=>{
+  let count=0;
+  const f=fixture({http:call=>{
+    if(call.path!=='v2/places/nearest') return;
+    if(++count===1) return response({id:75},200,{ETag:'"place"'});
+    return response(null,304,{'Cache-Control':'no-store'});
+  }});
+  const original=await f.client.place(POINT);
+  f.setNow(NOW+31*60000);
+  const verified=await f.client.place(POINT);
+  assert.deepEqual(verified.value,original.value);
+  assert.equal(verified.fetchedAt,original.fetchedAt);
+  assert.equal(f.values.has(CACHE+'place.48.975,14.476'),false);
+});
+
+test('Concurrent force revalidation coalesces and a new UV date range never sends the old URL validator', async()=>{
+  const held=deferred();
+  let count=0;
+  const f=fixture({http:call=>{
+    if(call.path!=='v1/uv_measures') return;
+    count++;
+    if(count===1) return response([{value:1}],200,{ETag:'"range-one"'});
+    if(count===2) return held.promise;
+    assert.equal(call.init.headers['If-None-Match'],undefined,'validator belongs to the exact requested date-range URL');
+    return response([{value:2}],200,{ETag:'"range-two"'});
+  }});
+  f.setNow(Date.parse('2026-10-31T22:50:00Z'));
+  await f.client.uv(POINT);
+  const a=f.client.uv(POINT,true);
+  const b=f.client.uv(POINT,true);
+  await flush();
+  assert.equal(count,2);
+  held.resolve(response(null,304));
+  assert.deepEqual(await a,await b);
+  f.setNow(Date.parse('2026-10-31T23:30:00Z'));
+  assert.equal((await f.client.uv(POINT)).value[0].value,2);
+  assert.equal(count,3);
 });

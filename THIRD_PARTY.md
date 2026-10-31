@@ -13,7 +13,10 @@ for that service.
 The plugin selects station observations, converts units and rounds values for
 display. It maps published ČHMÚ icon meanings to Pebble's smaller condition
 vocabulary, uses quantitative classification where needed, and derives daily
-ranges from available ALADIN hours, requiring complete future days. When
+ranges from available ALADIN hours, requiring complete future days. It can retain
+already-past ALADIN temperature/condition forecasts with their original download
+times to fill morning context dropped by a later run. They remain forecasts,
+and a range with missing hours is identified as partial. When
 ČHMÚ full-day forecasts are enabled, its fresh local daily aggregates supply
 full-day ranges. Choosing ČHMÚ as the preferred UV source independently uses
 its clear-sky noon estimates. The UV value
@@ -34,7 +37,9 @@ API access is governed separately by [Open-Meteo's service terms](https://open-m
 This noncommercial beta uses the free forecast endpoint.
 
 When enabled, Open-Meteo supplies actual precipitation probabilities and
-missing or extended forecast values. Its forecast daily peak UV is used when
+missing or extended forecast values. It also supplies a complete current-day
+range when ALADIN's available coverage is incomplete. Its forecast daily peak
+UV is used when
 chosen explicitly, or when preferred ČHMÚ UV is unavailable and completion is
 enabled. UV can also be hidden independently of all other weather fields.
 The plugin requests

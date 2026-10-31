@@ -1,6 +1,6 @@
 # Weather feeds and bundled location catalogue
 
-Version 0.4.0 beta prefers fresh ČHMÚ station temperature, humidity and wind
+Version 0.5.0 beta prefers fresh ČHMÚ station temperature, humidity and wind
 when they are reported together, then public ALADIN forecast fields. The
 **Use ČHMÚ full-day forecasts** setting adds fresh three-day local aggregates.
 The separate **Preferred UV source** selector chooses ČHMÚ clear-sky noon (default),
@@ -110,6 +110,36 @@ validity checks apply to optional humidity and wind rows; missing, invalid or
 unexplained flagged values remain absent. `meta3` describes element-specific
 flags and lists no special flag for air-temperature `T`.
 
+## HTTP validators and weather snapshot reuse
+
+Weather GETs can reuse `ETag` or a valid `Last-Modified` value supplied by the
+same endpoint. At the existing five-minute station and 30-minute forecast
+check windows, or on manual Refresh, the client sends `If-None-Match` when a
+usable ETag exists, otherwise `If-Modified-Since`. It does not invent validators
+or transfer them between locations, query URLs or services. Installation login
+and token-refresh POSTs keep their existing behavior.
+
+An HTTP 304 is accepted only with a matching, still-usable validated cached
+body. It records a new `checkedAt` while preserving `fetchedAt`, the original
+body download. Observation timestamps, source update times and the six-hour
+current/future forecast maximum age are not renewed. An expired snapshot needs
+a new usable body; 304 cannot revive it. A failed check likewise leaves the
+original timestamps intact.
+
+These are application weather snapshots at the plugin's existing reuse windows,
+not a general browser HTTP cache. `no-cache`, `max-age` and `Expires` do not
+change provider polling or host scheduling. `no-store` is honored separately:
+the response body is not persisted, any stored body for that resource is
+removed. An ALADIN response with this directive also clears retained context
+for that public point. Valid values can still be used in the current reply and
+derived diagnostic readings; the full reusable body is not persisted.
+
+During live inspection, ČHMÚ app UV and nearest-place responses supplied ETags
+and returned 304 for matching conditional requests. The inspected public graph
+and Open-Meteo responses supplied no ETag or Last-Modified validator. Payload
+savings therefore depend on the endpoint; not every weather request becomes
+smaller. Existing network domains and permissions are unchanged.
+
 ## ALADIN forecast
 
 ```text
@@ -132,6 +162,40 @@ four nominal ALADIN runs per day and a 72-hour forecast. Checking for a new run
 does not produce a new forecast every ten minutes. Preserve the validity times
 and identify these values as forecasts, including when a forecast is used as
 the fallback for unavailable measured temperature.
+
+### Retained past forecast context
+
+The plugin can retain raw parsed ALADIN temperature and condition forecasts for
+already-completed hours of today's Europe/Prague date. When a later run omits
+those leading hours, retained samples can fill the missing past context. Any
+supplied row wins, including an explicit null: history does not override the
+current response or fill its explicit invalid points.
+
+History is keyed by the public forecast point's ID, coordinates and Prague
+date. It is bounded to 16 points and 25 hourly samples per point, allowing a
+25-hour autumn day. It stores no station measurements, phone GPS coordinates,
+humidity or wind. Only strictly past hours are persisted or merged; current
+and future weather still need a usable current forecast. New-day access prunes
+previous dates.
+
+Each sample keeps the original forecast body-download time. Retained samples
+may be older than six hours **only as retrospective forecast context**. A new
+usable forecast, still within the ordinary six-hour download limit, is required
+to add or use that context. It cannot revive an expired current forecast or be
+labelled as observed weather. A `no-store` ALADIN response clears this point's
+retained context and does not contribute new history.
+
+Cold starts cannot reconstruct missing morning hours. Full ČHMÚ app daily
+aggregates remain preferred. Otherwise a complete ALADIN day, possibly including
+retained past hours, can supply a full range. If today remains incomplete and
+Open-Meteo completion is enabled, its full-day range takes priority over partial
+ALADIN extrema. With completion off, available partial extrema can be exposed
+with partial coverage metadata. Future ALADIN days still require complete
+hourly coverage. `today_range_complete` and `daily_coverage` identify full or
+partial ranges. `forecast_history_hours` counts retained slots and
+`forecast_history_oldest_download` keeps their earliest original download time;
+`hourly_source` identifies retained predictions. Plugin settings show this
+context. The native bridge may omit these custom coverage details.
 
 ### Conditions and icons
 
@@ -287,10 +351,11 @@ A request already sent can finish, but disabled channels do not start later
 requests or publish results under obsolete settings. Settings show the selected
 UV preference, actual source, status and reason.
 
-App data normally reuses a 30-minute fetch cache and can be reused offline for
-up to six hours after download, subject to the original source-age checks above.
-Refresh bypasses the short reuse window. A failed fetch does not make old
-source timestamps newer.
+App data normally reuses a snapshot for 30 minutes after its last successful
+check and can be reused offline only within six hours of the original body
+download, subject to the source-age checks above. Refresh bypasses the short
+reuse window and can send a conditional GET. A 304 or failed fetch does not
+make the original download or source timestamps newer.
 
 ## Open-Meteo supplement
 
@@ -318,11 +383,13 @@ transition. Download time records cache age, not a model issue time.
 
 Fresh same-time ČHMÚ station temperature/humidity/wind and valid public
 ALADIN hourly forecast fields take priority.
-Fresh app local daily aggregates are preferred for the dates they provide;
-otherwise complete future ALADIN ranges remain preferred. Without usable app
-aggregates, today's ALADIN range can use the available part of the current day;
-past hours missing from a new model run are not invented. Open-Meteo supplies
-missing, incomplete future or later forecast days, up to seven days total.
+Fresh app local daily aggregates are preferred for the dates they provide.
+Complete ALADIN days remain preferred after that, including retained already-past
+context for today. If today's ALADIN coverage is still incomplete, Open-Meteo's
+full-day range is used while completion is enabled. Without completion, an
+available partial ALADIN range is labelled as partial. Missing morning hours
+never seen by the plugin are not invented. Open-Meteo also supplies missing,
+incomplete future or later forecast days, up to seven days total.
 The plugin still exposes 48 hourly slots anchored at local midnight for today
 and tomorrow, not a promise of 48 future hours from the current moment.
 
@@ -334,8 +401,8 @@ values. The scalar `precipitation` property is today's daily probability.
 Rainfall amounts in millimetres are never converted into percentages.
 WMO weather codes are mapped following [Open-Meteo's variable documentation](https://open-meteo.com/en/docs#weathervariables).
 
-Supplemental responses normally reuse a 30-minute cache and expire after
-six hours. When the setting is off, they are neither requested nor used from
+Supplemental snapshots normally reuse a 30-minute last-check window and expire
+six hours after the original body download, even after a 304 revalidation. When the setting is off, they are neither requested nor used from
 cache. Disabling does not retract previously delivered data from consumers.
 Source and download timestamps are exposed to direct plugin consumers; mixed
 output is not attributed entirely to ČHMÚ. Cached response bodies can include
@@ -384,8 +451,9 @@ its provider fallback can instead replace an unsupported or failed location
 as a whole. The main Weather screen uses the active hourly slot, so this plugin
 blends its fresh station measurement into that slot as well as scalar
 temperature. The original observation time still controls validity. Raw model
-cache values and all other hourly slots are unchanged; `hourly_source` records
-the observation/forecast provenance for direct consumers. An expired or absent
+response values are unchanged; retained ALADIN context can fill missing past
+slots. `hourly_source` records observation/forecast provenance for direct
+consumers, with retained past context identified as forecast history. An expired or absent
 observation leaves the forecast slot intact. The envelope expiry is capped at
 the hour boundary, but the current native Weather importer ignores that expiry
 for scheduling. It uses the phone app's own approximately hourly weather job,

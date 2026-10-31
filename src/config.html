@@ -62,6 +62,9 @@
       if(place.uvReason){card.appendChild(node('p',place.uvReason,'hint'));}
       if(place.uvUpdatedAt){card.appendChild(node('p',(place.uvSource&&place.uvSource.indexOf('ČHMÚ')>=0?'UV source update: ':'UV downloaded: ')+new Date(place.uvUpdatedAt*1000).toLocaleString(),'hint'));}
       if(place.appForecastUpdatedAt){card.appendChild(node('p','Full-day ALADIN source update: '+new Date(place.appForecastUpdatedAt*1000).toLocaleString(),'hint'));}
+      if(place.appDataLastChecked){card.appendChild(node('p','ČHMÚ app data last checked: '+new Date(place.appDataLastChecked*1000).toLocaleString(),'hint'));}
+      if(place.retainedForecastHours){card.appendChild(node('p',place.retainedForecastHours+' earlier ALADIN forecast hours retained. These are predictions, not station observations.','hint'));}
+      if(place.todayRangeComplete===false){card.appendChild(node('p',"Today's high/low covers the available hours only; the full day is not known.",'hint'));}
       if(place.appDataStatus){card.appendChild(node('p',place.appDataStatus,'hint'));}
       if(typeof place.precipitation==='number'){card.appendChild(node('p',"Today's rain probability: "+place.precipitation+'%','hint'));}
       if(place.forecastDays){card.appendChild(node('p',place.forecastDays+' forecast days available','hint'));}

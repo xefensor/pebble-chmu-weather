@@ -238,9 +238,22 @@ function buildInstance(options) {
   var units = options.units || {};
   var unit = units.temperature === '°F' ? '°F' : '°C';
   var nowSec = Math.floor(now / 1000);
+  var today = localDate(now);
+  var start = midnight(today);
   var fetched = options.fetchedAt;
   var forecastUsable = fresh(fetched, nowSec);
   var byPrimaryTime = hourMap(forecastUsable && options.forecast ? options.forecast.hours : null);
+  var retainedTimes = {};
+  Object.keys(byPrimaryTime).forEach(function(time) {
+    var hour = byPrimaryTime[time];
+    if (!hour.retainedForecast) { return; }
+    // Historical predictions are context for elapsed hours, never a source
+    // for the current hour, future temperatures or another calendar day.
+    if (hour.time < Math.floor(nowSec / HOUR) * HOUR && hour.time >= start &&
+        validTemp(hour.temperatureC) && sameDate(localDate(hour.time * 1000), today)) {
+      retainedTimes[time] = true;
+    } else { delete byPrimaryTime[time]; }
+  });
   var supplemental = options.supplemental;
   var supplementalUsable = supplemental && supplemental.timezone === 'Europe/Prague' && fresh(options.supplementalFetchedAt, nowSec);
   var byExtraTime = hourMap(supplementalUsable ? supplemental.hours : null);
@@ -286,8 +299,6 @@ function buildInstance(options) {
   if (!measured && !(currentHour && validTemp(currentHour.temperatureC))) { return null; }
   var temp = measured ? observation.temperatureC : currentHour.temperatureC;
   var code = codeOf(currentHour);
-  var today = localDate(now);
-  var start = midnight(today);
   var temperatureSource = measured ? 'station' : currentHour.sources.temperatureC;
   var currentSource = measured ? 'ČHMÚ station measurement' : temperatureSource === 'ALADIN' ? 'ČHMÚ ALADIN forecast' : 'Open-Meteo forecast';
   var properties = {
@@ -370,7 +381,7 @@ function buildInstance(options) {
     var hourTemperature = currentMeasurement ? observation.temperatureC : hour && hour.temperatureC;
     hourlyTemps.push(validTemp(hourTemperature) ? hourTemperature : null);
     hourlyCodes.push(validTemp(hourTemperature) ? codeOf(hour) : null);
-    hourlySources.push(currentMeasurement ? 'ČHMÚ station measurement' :
+    hourlySources.push(currentMeasurement ? 'ČHMÚ station measurement' : retainedTimes[slot] ? 'ČHMÚ ALADIN (retained forecast)' :
       hour && validTemp(hour.temperatureC) ? hour.sources.temperatureC === 'ALADIN' ? 'ČHMÚ ALADIN forecast' : 'Open-Meteo forecast' : null);
     hourlyProbability.push(hour && percent(hour.precipitationProbability) ? hour.precipitationProbability : null);
     noteSources(hour, validTemp(hourTemperature) ? currentMeasurement ? ['conditionCode', 'precipitationProbability'] :
@@ -378,6 +389,18 @@ function buildInstance(options) {
   }
   properties.hourly_temperature = tempSeries(start, HOUR, hourlyTemps, unit);
   properties.hourly_source = over(start, HOUR, {longText:{values:hourlySources}});
+  var retained = Object.keys(retainedTimes);
+  if (retained.length) {
+    properties.forecast_history_hours = {numericValue:{value:retained.length, unit:'h', min:0}};
+    var oldest = null;
+    retained.forEach(function(time) {
+      var downloaded = options.forecast.historicalFetchedAt && options.forecast.historicalFetchedAt[time];
+      if (finite(downloaded) && downloaded > 0 && downloaded <= nowSec + 300) {
+        oldest = oldest === null ? downloaded : Math.min(oldest, downloaded);
+      }
+    });
+    if (oldest !== null) { properties.forecast_history_oldest_download = timestamp(Math.floor(oldest)); }
+  }
   properties.hourly_condition_code = over(start, HOUR, {longText: {values: hourlyCodes}});
   var hourlyCondition = {shortText: {values: hourlyCodes.map(function(c) { return c === null ? null : CONDITIONS[c]; })}};
   if (iconSize && wanted('hourly_condition')) {
@@ -403,19 +426,21 @@ function buildInstance(options) {
     var extraDay = byExtraDate[dateKey(parts)];
     var appDay = day < 3 ? byAppDate[dateKey(parts)] : null;
     var entries = primaryHours.filter(function(hour) { return validTemp(hour.temperatureC) && sameDate(localDate(hour.time * 1000), parts); });
+    var completeDay = [];
+    var until = midnight(dayParts(parts, 1));
+    var at;
+    for (at = midnight(parts); at < until; at += HOUR) {
+      var expected = byPrimaryTime[at];
+      if (!expected || !validTemp(expected.temperatureC)) { break; }
+      completeDay.push(expected);
+    }
+    var rangeComplete = at === until;
     if (day > 0) {
       // The ALADIN response ends after 73 hours, often partway into its last
       // local day. A few early hours cannot stand in for that day's high/low.
       // Demand every actual UTC hour of a future local calendar day; Prague
       // daylight-saving transitions make that 23 or 25 hours, not always 24.
-      var complete = [];
-      var until = midnight(dayParts(parts, 1));
-      for (var at = midnight(parts); at < until; at += HOUR) {
-        var expected = byPrimaryTime[at];
-        if (!expected || !validTemp(expected.temperatureC)) { break; }
-        complete.push(expected);
-      }
-      entries = at === until ? complete : [];
+      entries = rangeComplete ? completeDay : [];
     }
     var daily;
     if (appDay) {
@@ -428,8 +453,13 @@ function buildInstance(options) {
         })[0];
         appCode = codeOf(appNoon);
       }
-      daily = {high:appDay.highC, low:appDay.lowC, code:appCode, source:'ČHMÚ ALADIN (full-day app forecast)'};
+      daily = {high:appDay.highC, low:appDay.lowC, code:appCode, source:'ČHMÚ ALADIN (full-day app forecast)', complete:true};
       appForecastUsed = true;
+    } else if (extraDay && validTemp(extraDay.highC) && validTemp(extraDay.lowC) && extraDay.highC >= extraDay.lowC && !rangeComplete) {
+      // A cold start cannot reconstruct a missing morning. Prefer an available
+      // complete daily forecast to labelling remaining hours a whole-day range.
+      daily = {high:extraDay.highC, low:extraDay.lowC, code:codeOf(extraDay), source:'Open-Meteo', complete:true};
+      supplementalUsed = true;
     } else if (entries.length) {
       var high = -Infinity;
       var low = Infinity;
@@ -442,9 +472,11 @@ function buildInstance(options) {
         var distance = Math.abs(local.getUTCHours() + local.getUTCMinutes() / 60 - 12);
         if (distance < noonDistance) { nearestNoon = hour; noonDistance = distance; }
       });
-      daily = {high: high, low: low, code: codeOf(nearestNoon), source: 'ČHMÚ ALADIN'};
+      var usesHistory = entries.some(function(hour) { return !!retainedTimes[hour.time]; });
+      daily = {high: high, low: low, code: codeOf(nearestNoon), source: usesHistory ?
+        'ČHMÚ ALADIN (' + (rangeComplete ? 'full day' : 'partial day') + ' with retained forecast hours)' : 'ČHMÚ ALADIN', complete:rangeComplete};
     } else if (extraDay && validTemp(extraDay.highC) && validTemp(extraDay.lowC) && extraDay.highC >= extraDay.lowC) {
-      daily = {high: extraDay.highC, low: extraDay.lowC, code: codeOf(extraDay), source: 'Open-Meteo'};
+      daily = {high: extraDay.highC, low: extraDay.lowC, code: codeOf(extraDay), source: 'Open-Meteo', complete:true};
       supplementalUsed = true;
     } else {
       // Native series use consecutive calendar-day indexes. Never shift a
@@ -457,6 +489,10 @@ function buildInstance(options) {
     dailies.push(daily);
   }
   if (dailies.length) {
+    properties.today_range_complete = {boolean:{value:dailies[0].complete === true}};
+    properties.daily_coverage = over(start, DAY, {longText:{values:dailies.map(function(d) {
+      return d.complete ? 'Full-day forecast' : 'Partial-day forecast';
+    })}});
     properties.high = tempShape(dailies[0].high, unit, false);
     properties.low = tempShape(dailies[0].low, unit, false);
     if (dailies[0].sun) {

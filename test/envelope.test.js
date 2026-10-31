@@ -53,6 +53,68 @@ function withSupplement(overrides = {}) {
   return options(Object.assign({supplemental: supplement(), supplementalFetchedAt: NOW / 1000}, overrides));
 }
 
+function withHistory(overrides = {}) {
+  const raw=hours();
+  const old=raw.slice(0,8).map(h=>({time:h.time,temperatureC:-4,conditionCode:'cloudy',retainedForecast:true}));
+  const historicalFetchedAt={};old.forEach(h=>{historicalFetchedAt[h.time]=NOW/1000-10*3600;});
+  return options({forecast:{hours:old.concat(raw.slice(8)),historicalFetchedAt},...overrides});
+}
+
+test('Retained past predictions restore a complete model day without altering current temperature or future forecast', () => {
+  const p=buildInstance(withHistory()).properties;
+  assert.equal(p.low.numericValue.value,-4);
+  assert.equal(p.today_range_complete.boolean.value,true);
+  assert.match(p.daily_source.series.longText.values[0],/full day with retained forecast hours/);
+  assert.equal(p.forecast_history_hours.numericValue.value,8);
+  assert.equal(p.forecast_history_oldest_download.timestamp.value,NOW/1000-10*3600);
+  assert.equal(p.hourly_source.series.longText.values[0],'ČHMÚ ALADIN (retained forecast)');
+  assert.equal(p.temperature.numericValue.value,6.8);
+  assert.equal(p.hourly_temperature.series.numericValue.values[8],6.8);
+  assert.equal(p.hourly_temperature.series.numericValue.values[9],hours()[9].temperatureC);
+});
+
+test('Historical markers cannot supply current/future or another calendar day even when temperatures are valid', () => {
+  const raw=hours();
+  for(const index of [8,9,30]) raw[index]={...raw[index],retainedForecast:true,temperatureC:99};
+  const p=buildInstance(options({forecast:{hours:raw}})).properties;
+  assert.equal(p.forecast_history_hours,undefined);
+  assert.equal(p.temperature.numericValue.value,6.8);
+  assert.equal(p.hourly_temperature.series.numericValue.values[8],6.8);
+  assert.equal(p.hourly_temperature.series.numericValue.values[9],null);
+  assert.equal(p.hourly_temperature.series.numericValue.values[30],null);
+  assert.notEqual(p.high.numericValue.value,99);
+});
+
+test('A cold-start partial day uses a complete supplemental range, or explicitly stays partial when completion is off', () => {
+  const partial={hours:hours().slice(8)};
+  const enabled=buildInstance(withSupplement({forecast:partial})).properties;
+  assert.equal(enabled.high.numericValue.value,25);
+  assert.equal(enabled.low.numericValue.value,15);
+  assert.equal(enabled.daily_source.series.longText.values[0],'Open-Meteo');
+  assert.equal(enabled.today_range_complete.boolean.value,true);
+  const disabled=buildInstance(options({forecast:partial})).properties;
+  assert.equal(disabled.today_range_complete.boolean.value,false);
+  assert.equal(disabled.daily_coverage.series.longText.values[0],'Partial-day forecast');
+  assert.equal(disabled.forecast_history_hours,undefined);
+});
+
+test('Full-day app aggregates remain primary even when historical model extremes differ', () => {
+  const model=withHistory();
+  const p=buildInstance(appOptions({forecast:model.forecast})).properties;
+  assert.equal(p.high.numericValue.value,14);
+  assert.equal(p.low.numericValue.value,1);
+  assert.equal(p.today_range_complete.boolean.value,true);
+  assert.match(p.daily_source.series.longText.values[0],/full-day app forecast/);
+  assert.equal(p.forecast_history_hours.numericValue.value,8,'past hourly context remains available independently');
+});
+
+test('A usable historical context cannot revive an expired current forecast', () => {
+  const p=buildInstance(withHistory({fetchedAt:NOW/1000-6*3600-1})).properties;
+  assert.equal(p.forecast_history_hours,undefined);
+  assert.equal(p.today_range_complete,undefined);
+  assert.ok(p.hourly_temperature.series.numericValue.values.slice(0,8).every(v=>v===null));
+});
+
 function appOptions(overrides = {}) {
   return withSupplement({
     appUV:{days:[{date:'2026-10-31',uvIndex:1.5,updatedAt:NOW/1000-4*86400}]},
