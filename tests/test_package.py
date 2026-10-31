@@ -64,6 +64,30 @@ class PackageTests(unittest.TestCase):
         second = BUILD.build_project(self.project, run_js=False).read_bytes()
         self.assertEqual(first, second)
 
+    def test_release_candidate_filename_keeps_publishable_numeric_version(self):
+        source = package()
+        source.update(version="0.6.0", releaseCandidate=1)
+        self.write_package(source)
+        output = BUILD.build_project(self.project, run_js=False)
+        self.assertEqual(output.name, "CHMU-Weather-0.6.0-rc.1.pbw")
+        with zipfile.ZipFile(output) as archive:
+            info = json.loads(archive.read("appinfo.json"))
+            self.assertEqual(info["versionLabel"], "0.6.0")
+            self.assertNotIn("releaseCandidate", info)
+
+    def test_unpublishable_version_or_invalid_candidate_is_rejected(self):
+        for version in ["0.6.0-rc.1", "256.1.0", "1.256.0", "1.0.256"]:
+            with self.subTest(version=version):
+                source = package()
+                source["version"] = version
+                with self.assertRaises(ValueError): BUILD.appinfo_from_package(source)
+        for candidate in [True, False, 0, -1, "1", None]:
+            with self.subTest(candidate=candidate):
+                source = package()
+                source["releaseCandidate"] = candidate
+                self.write_package(source)
+                with self.assertRaises(ValueError): BUILD.build_project(self.project, run_js=False)
+
     def test_shipped_license_and_attribution_files_preserve_exact_bytes(self):
         files = {
             "LICENSE": b"License terms\r\nCopyright Xef\r\n",

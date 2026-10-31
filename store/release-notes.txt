@@ -1,0 +1,12 @@
+ČHMÚ Weather 0.6.0 release candidate 1
+
+- Correct installed version display, reliable save errors and rollback to confirmed settings
+- Refines the plugin settings into readable cards with clearer spacing and controls
+- Adds English/Czech interface text and light/dark presentation
+- Puts current readings, station selection and measured/forecast status ahead of technical diagnostics
+- Keeps detailed source timestamps and provider information available in expandable sections
+- Prepares original plugin icons, listing text, source/archive checksums and a publishing checklist
+- Preserves the working native plugin runtime fix from 0.5.1, including the absence of JavaScript timers
+- Retains existing station freshness rules, ALADIN forecasts, independent UV/full-day settings, optional Open-Meteo completion and original cache timestamps
+
+This is a sideloadable plugin-preview candidate. It does not establish public-store eligibility or complete physical phone/watch validation. Pebble currently limits plugin publishing to invited developers.

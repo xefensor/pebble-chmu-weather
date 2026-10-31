@@ -3,32 +3,50 @@
 Unofficial weather plugin by Xef. Nearby ČHMÚ station measurements supply the
 current temperature, humidity and wind when the station reports them together.
 ALADIN supplies local forecasts. ČHMÚ app data adds full-day local ranges and
-clear-sky noon UV, with separate controls for each. Open-Meteo completes missing
-weather fields, rain probabilities and forecasts up to seven days.
+clear-sky noon UV, with separate controls for each. When enabled, Open-Meteo completes
+missing weather fields, rain probabilities and forecasts up to seven days.
 
 The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install the 0.5.1 beta
+## Install the 0.6.0 release candidate 1
+
+[Settings preview: English/light](docs/images/settings-en-light.png) · [Czech/dark](docs/images/settings-cs-dark.png)
 
 1. In Pebble mobile app 1.16.x, enable **Settings → Plugins → Plugins /
    permissions preview**. Labels may change while plugins are in preview.
-2. Open [CHMU-Weather-0.5.1.pbw](dist/CHMU-Weather-0.5.1.pbw) with the Pebble app.
+2. Open [CHMU-Weather-0.6.0-rc.1.pbw](dist/CHMU-Weather-0.6.0-rc.1.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
    `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com` through Pebble's
    normal permission flow.
 4. Select **Settings → Weather → Weather provider → ČHMÚ Weather**. This feeds
    the watch's Weather app and timeline, and watchfaces using Pebble weather.
    Your saved weather locations and units are used automatically.
-5. Open the plugin's settings and tap **Refresh ČHMÚ data** to inspect the
-   station, measurement time, last successful update and UV source. Choose from
-   nearby eligible stations or leave selection on Automatic.
+5. Open the plugin settings, refresh the data, and inspect the current reading
+   and measured/forecast status. Choose a nearby station or leave selection on
+   Automatic. Source timestamps and technical details remain available under
+   **Source details**.
 
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
-This is a sideloadable beta, not a Pebble Store release. Installation and
-end-to-end delivery inside the physical phone/watch runtime still need testing.
-Source: [CHMU-Weather-0.5.1-source.zip](dist/CHMU-Weather-0.5.1-source.zip).
+This is a sideloadable plugin-preview candidate, not a public Store release.
+Pebble currently limits plugin publishing to invited developers. The user
+reported that 0.5.1 resolved the original runtime failure; this candidate's
+physical phone/watch checks remain separate from its automated validation.
+[Source archive](dist/CHMU-Weather-0.6.0-rc.1-source.zip) and
+[prepared store package](dist/CHMU-Weather-0.6.0-rc.1-store-package.zip) are included.
+Read the [publishing checklist](store/PUBLISHING.md) before any eligible upload.
+
+## Settings
+
+The settings page follows English/Czech phone language and light/dark appearance.
+**Latest loaded readings** puts current values and station selection first.
+**Forecast sources** keeps daily forecasts, UV and Open-Meteo independent;
+**Source details** expands timestamps and provenance. **Setup and help** explains
+Weather provider selection and coverage. Weather calculations, defaults, source permissions and cache freshness
+rules are retained. UI text and diagnostics do not redefine a forecast as a
+measurement.
+
 
 ## Weather sources
 
@@ -46,13 +64,13 @@ Source: [CHMU-Weather-0.5.1-source.zip](dist/CHMU-Weather-0.5.1-source.zip).
 
 Two forecast settings are on by default:
 
-- **Use ČHMÚ full-day forecasts** adds the app service's three-day local
+- **ČHMÚ full-day forecasts** adds the app service's three-day local
   aggregates. This checkbox controls daily ranges and conditions only.
-- **Use Open-Meteo to complete missing weather data** adds rain probabilities,
+- **Complete with Open-Meteo** adds rain probabilities,
   missing fields and later local forecast days. Turning it off prevents all
   Open-Meteo requests and use of cached Open-Meteo values.
 
-The separate **Preferred UV source** setting has three choices:
+The separate **UV source** setting has three choices:
 
 | Choice | Behavior |
 | --- | --- |
@@ -67,7 +85,7 @@ time. Selecting
 Open-Meteo while completion is off shows an instruction to enable completion;
 it does not enable that service automatically.
 
-ČHMÚ UV works with **Use ČHMÚ full-day forecasts** off. To stop requests to the
+ČHMÚ UV works with **ČHMÚ full-day forecasts** off. To stop requests to the
 ČHMÚ app service, turn off full-day forecasts and choose Open-Meteo or Off for
 UV. The plugin creates its own random installation ID and service credentials
 when that service is needed; you do not sign in. With both forecast settings
@@ -174,9 +192,9 @@ next import, it can show that slot's forecast until another update arrives.
 
 Direct consumers can read observation timestamps, `is_forecast`, source and
 station metadata, UV provenance, calculated feels-like provenance, and daily
-forecast sources. A Halftone beta using the built-in bridge can use this plugin
-through the global Weather provider setting, but does not receive every custom
-property. If a station observation is usable but too little forecast data is
+forecast sources. Halftone can use the selected weather readings through its global complication
+choices. Direct consumers retain the plugin's source properties; the native
+Weather bridge does not retain every custom property. If a station observation is usable but too little forecast data is
 available, direct consumers can still receive the observation; Pebble's native
 provider bridge may reject the incomplete location and use its own fallback.
 

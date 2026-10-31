@@ -549,6 +549,37 @@ test('Completion diagnostics describe used values and a disabled preference pres
   assert.deepEqual(f.client.state().settings.stations,{'saved-cb':station.id});
 });
 
+for (const [name,change] of [
+  ['station',client=>client.setStation('saved-cb',station.id)],
+  ['completion',client=>client.setCompleteWeather(false)],
+  ['full-day forecasts',client=>client.setAppData(false)],
+  ['UV source',client=>client.setUVSource('off')]
+]) {
+  test('A failed '+name+' settings write preserves the active settings and diagnostics',()=>{
+    const selected={stations:{},completeWeather:true,appData:true,uvSource:'chmu',revision:8};
+    const values=new Map([
+      ['chmu.settings.v1',JSON.stringify(selected)],
+      ['chmu.status.v1',JSON.stringify({'saved-cb':{id:'saved-cb',name:'České Budějovice',
+        settingsRevision:8,temperature:'7°C',eligibleStations:[{id:station.id}]}})]
+    ]);
+    const before=[...values];
+    const writes=[];
+    const client=createClient({catalog:copy(CATALOG),now:()=>NOW,storage:{
+      getItem:key=>values.get(key)??null,
+      setItem:(key,value)=>{
+        writes.push(key);
+        if (key==='chmu.settings.v1') throw Error('Internal quota details must stay private');
+        values.set(key,value);
+      },removeItem:key=>values.delete(key)
+    }});
+    assert.throws(()=>change(client),error=>error.code==='STORAGE_ERROR' &&
+      error.message==='Pebble could not save settings. Check available storage and try again.');
+    assert.deepEqual([...values],before,'a rejected save cannot clear the previous diagnostics');
+    assert.deepEqual(writes,['chmu.settings.v1'],'persist before changing diagnostic state');
+    assert.deepEqual(client.state().settings,selected);
+  });
+}
+
 test('Turning completion off ignores its warm cache and removes supplemental fields and extended days', async()=>{
   const f=fixture({settings:null});
   await f.client.getWeather(REQUEST);

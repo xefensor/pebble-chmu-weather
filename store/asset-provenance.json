@@ -1,0 +1,53 @@
+{
+  "name": "ČHMÚ Weather",
+  "version": "0.6.0",
+  "releaseCandidate": 1,
+  "pbw": {
+    "file": "CHMU-Weather-0.6.0-rc.1.pbw",
+    "sha256": "5819de2b18aed101a36d2975c02e1267c17df2b6314642d7d366250a85914e33",
+    "scriptSha256": "269d433937347ccd1244feae2c33a7448a7a21d13f9dda4cabf68aacdca11ba7",
+    "configSha256": "715b98d20f0e6554ec4cd50800f0ae91d5738a009889c1000df6acdbba529ea3"
+  },
+  "icons": {
+    "provenance": "Original generic sun/cloud/rain vector, not an official provider logo. Rendered from icon-source.svg with Chromium 138.",
+    "files": [
+      {
+        "file": "store/icon-large-144.png",
+        "sha256": "f0fde8a6c64cd1b5238e920ab84621aa350f6749b7c60714bf3fd360c4b0a62a",
+        "pixels": [
+          144,
+          144
+        ]
+      },
+      {
+        "file": "store/icon-small-80.png",
+        "sha256": "478fe28ae35c199e3aa9ac65e87af31a4f2f2dfd219efc211202f51283cf30e0",
+        "pixels": [
+          80,
+          80
+        ]
+      }
+    ]
+  },
+  "settingsPreviews": {
+    "provenance": "Actual final config.html rendered with a mocked Pebble bridge and illustrative fixture values; not live weather or physical-phone verification. These are documentation previews, not Store screenshot fields.",
+    "files": [
+      {
+        "file": "docs/images/settings-cs-dark.png",
+        "sha256": "2a104c4588464034b48c1dcf78ec250ba5a55a8b61f19f33b4e9421ceadaeffc",
+        "pixels": [
+          390,
+          1920
+        ]
+      },
+      {
+        "file": "docs/images/settings-en-light.png",
+        "sha256": "ea03a99ce216fde64e4723830b3be13a5553ef8366b74816dc2c25dd48686058",
+        "pixels": [
+          390,
+          1887
+        ]
+      }
+    ]
+  }
+}

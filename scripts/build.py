@@ -17,7 +17,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
+VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 LICENSE_FILES = ("LICENSE", "THIRD_PARTY.md", "licenses/SunCalc-MIT.txt")
 
 
@@ -33,8 +33,9 @@ def appinfo_from_package(package):
     if parsed_uuid.int == 0:
         raise ValueError("pebble.uuid must not be the nil UUID")
     version = package.get("version", "")
-    if not isinstance(version, str) or not VERSION.fullmatch(version):
-        raise ValueError("package.version must have major.minor.patch form")
+    if (not isinstance(version, str) or not VERSION.fullmatch(version) or
+            any(int(part) > 255 for part in version.split('.'))):
+        raise ValueError("package.version must be numeric major.minor.patch with segments at most 255")
     plugin = appinfo.get("plugin")
     if not isinstance(plugin, dict) or plugin.get("script") != "plugin.js":
         raise ValueError("pebble.plugin.script must be plugin.js")
@@ -70,12 +71,23 @@ def appinfo_from_package(package):
     return appinfo
 
 
+def artifact_stem(package):
+    suffix = ""
+    if "releaseCandidate" in package:
+        candidate = package["releaseCandidate"]
+        if not isinstance(candidate, int) or isinstance(candidate, bool) or candidate < 1:
+            raise ValueError("releaseCandidate must be a positive integer")
+        suffix = f"-rc.{candidate}"
+    return f"CHMU-Weather-{package['version']}{suffix}"
+
+
 def build_project(project=ROOT, *, run_js=True, output=None):
     project = Path(project).resolve()
     if (project / "src/c").exists():
         raise ValueError("this packager only accepts phone-only plugins (no src/c)")
     package = json.loads((project / "package.json").read_text(encoding="utf-8"))
     appinfo = appinfo_from_package(package)
+    stem = artifact_stem(package)
     if package.get("license") == "SEE LICENSE IN LICENSE" and not (project / "LICENSE").is_file():
         raise ValueError("package.json refers to LICENSE, but that file is missing")
     if run_js:
@@ -91,7 +103,7 @@ def build_project(project=ROOT, *, run_js=True, output=None):
             entries[name] = path.read_bytes()
     if any(not content.strip() for content in entries.values()):
         raise ValueError("the plugin script, config page and included license files must not be empty")
-    output = Path(output) if output else project / "dist" / f"CHMU-Weather-{package['version']}.pbw"
+    output = Path(output) if output else project / "dist" / f"{stem}.pbw"
     output.parent.mkdir(parents=True, exist_ok=True)
     # Fixed metadata makes identical source builds reproducible.
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:

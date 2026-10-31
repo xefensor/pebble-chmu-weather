@@ -1,4 +1,85 @@
-# Beta validation
+# Release validation
+
+## 0.6.0 release candidate 1
+
+The checks below use the final candidate and actual rendered settings. No
+physical phone/watch success is claimed for this new candidate. The user's report that 0.5.1 fixed the original source failure does
+not establish every path in this candidate.
+
+- Settings use readable current-reading cards, nearby station selection,
+  independent forecast/UV/source controls and expandable technical details.
+  English/Czech text and light/dark presentation are reviewed separately from
+  actual provider availability.
+- Weather selection, permissions, observation/source/body-download timestamps,
+  conditional-request semantics and source-disable behavior are retained.
+  The native plugin must continue to avoid forbidden timer globals.
+- A phone-only manifest, exact script/config bytes, preserved UUID and provider
+  domains, license notices, original icons and current listing/privacy links
+  are included in the release pass.
+- Pebble's current [plugin publishing guide](https://developer.repebble.com/guides/plugins/publishing-plugins/)
+  limits publishing to invited developers. No public Store submission is part
+  of preparing the candidate. Settings screenshots are documentation previews;
+  plugins do not have Store screenshot fields.
+
+- **297 JavaScript tests** and **14 Python packaging tests** pass. New
+  regressions cover package-derived settings version, failed storage writes for
+  all four settings mutations, preserved settings/diagnostics and no source
+  refresh after an unconfirmed save. Packaging keeps the numeric version in
+  the manifest and candidate suffix in filenames, and rejects unusable versions.
+- **Nine restricted-runtime regressions** pass against JavaScript extracted
+  from the exact PBW. Throwing timer getters reproduce the native plugin's
+  restriction. The version regression fails against the older 0.5.1 PBW, which
+  reported 0.5.0, and passes on this candidate. No browser timers were added to
+  the native entrypoint or its deadline handling.
+- The exact packaged script passes the network-free forecast-history smoke:
+  13 retained past hours in the warm case, honest partial ranges for cold and
+  retrospective-only cases, and eight fixture public requests. The fixture run requires no live providers or disk credentials.
+- **88 browser rendering cases** and **20 DOM interaction groups** pass on the
+  exact final HTML: English/Czech, 320/390/760px, light/dark, zero and
+  missing readings, forecasts, stale snapshots, long names/diagnostics,
+  permissions, UV dependencies and source independence. Autosave ACKs mirror
+  real diagnostic invalidation, station changes affect only their location,
+  failed/malformed responses restore confirmed controls, initial state failure
+  prevents writes until recovery, and busy locking prevents concurrent changes.
+  Expanded details and keyboard access pass. There are no JavaScript errors,
+  page HTTP requests, injection execution or horizontal overflow. Documentation
+  previews use illustrative fixture weather, not live phone measurements.
+- The PBW is **70,493 bytes**, byte-identical on repeat builds. Its manifest,
+  bundled script, local config and license notices match current source/build
+  bytes. UUID, all source/property shapes and the four permitted domains are
+  preserved. There is no native watch binary. The original icons render at
+  **80 × 80** and **144 × 144**; hashes and preview provenance are recorded in
+  [asset-provenance.json](../store/asset-provenance.json).
+- **The single strict live smoke did not pass.** It stopped in the source phase
+  before the exact-bundle live phase: public station, ALADIN and bulk requests
+  took 6.67–6.76 seconds, beyond the existing six-second per-call deadline.
+  Seven provider requests returned HTTP 200, including successful app-service
+  authentication, but late ČHMÚ results were safely rejected and the resulting
+  temperature was a labelled Open-Meteo forecast. Two backup requests were still
+  pending when the harness stopped. One secure credential record was used,
+  zero request-safety failures were reported, and credentials were not saved to
+  disk. No timeout, freshness or provider-selection rules were relaxed to make
+  the check pass. This is not a successful fresh-station or exact-bundle live
+  validation; those paths still need confirmation on the phone/network.
+- Source and Store archives use fixed ZIP metadata, are repeatable and are
+  byte-checked against current files. Dependencies, build output, credentials
+  and nested release archives are excluded from source. The Store bundle has
+  the exact PBW, original icons, English/Czech listing copy, privacy/attribution,
+  licenses and a publication checklist, with an internal checksum manifest.
+  Outer hashes are in `dist/SHA256SUMS`. Plugin publication remains invitation-
+  limited; no Store upload was performed.
+
+Final PBW SHA-256:
+
+`5819de2b18aed101a36d2975c02e1267c17df2b6314642d7d366250a85914e33`
+
+Packaged script SHA-256:
+
+`269d433937347ccd1244feae2c33a7448a7a21d13f9dda4cabf68aacdca11ba7`
+
+Packaged config SHA-256:
+
+`715b98d20f0e6554ec4cd50800f0ae91d5738a009889c1000df6acdbba529ea3`
 
 Version 0.5.1 checked on 31 October 2026. Earlier results below are historical.
 

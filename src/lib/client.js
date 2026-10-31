@@ -8,6 +8,7 @@ var parseStationObservation = require('./station-observation').parseObservation;
 var httpCache = require('./http-cache');
 var createHistory = require('./forecast-history').createHistory;
 var buildInstance = require('./envelope').buildInstance;
+var VERSION = require('../../package.json').version;
 var REFRESH = 30 * 60000;
 var MAX_FORECAST_AGE = 6 * 3600000;
 // The phone host gives a native source handler 20 seconds. Stop starting work
@@ -36,6 +37,12 @@ module.exports = function(options) {
   }
   function save(key, value) {
     try { storage.setItem(key, JSON.stringify(value)); } catch (ignored) {}
+  }
+  function saveSettings(value) {
+    try { storage.setItem(SETTINGS, JSON.stringify(value)); }
+    catch (ignored) {
+      throw {code:'STORAGE_ERROR', message:'Pebble could not save settings. Check available storage and try again.'};
+    }
   }
   function settings() {
     var value = load(SETTINGS, {});
@@ -562,7 +569,7 @@ module.exports = function(options) {
     var locations = Object.values(load(STATUS, {})).filter(function(value) {
       return value && (value.settingsRevision || 0) === selected.revision;
     });
-    return {version:'0.5.0', settings:selected, locations:locations};
+    return {version:VERSION, settings:selected, locations:locations};
   }
   function setStation(locationId, stationId) {
     if (typeof locationId !== 'string' || !locationId || locationId.length > 128 ||
@@ -576,9 +583,14 @@ module.exports = function(options) {
       throw {code:'INVALID_ARGS', message:'Choose a station within 30 km of this location'};
     }
     var s = settings();
-    if ((s.stations[locationId] || '') !== stationId) {
-      var previousRevision = s.revision;
-      s.revision++;
+    var changed = (s.stations[locationId] || '') !== stationId;
+    var previousRevision = s.revision;
+    if (changed) { s.revision++; }
+    if (stationId) { s.stations[locationId] = stationId; } else { delete s.stations[locationId]; }
+    // A failed settings write must not claim success or discard diagnostics
+    // for the still-active configuration. Weather caches remain best-effort.
+    saveSettings(s);
+    if (changed) {
       var diagnostics = load(STATUS, {});
       delete diagnostics[locationId];
       Object.keys(diagnostics).forEach(function(id) {
@@ -588,32 +600,36 @@ module.exports = function(options) {
       });
       save(STATUS, diagnostics);
     }
-    if (stationId) { s.stations[locationId] = stationId; } else { delete s.stations[locationId]; }
-    save(SETTINGS, s);
     return state();
   }
   function setCompleteWeather(enabled) {
     if (typeof enabled !== 'boolean') { throw {code:'INVALID_ARGS', message:'Choose whether complete weather data is enabled'}; }
     var s = settings();
-    if (s.completeWeather !== enabled) { s.revision++; save(STATUS, {}); }
+    var changed = s.completeWeather !== enabled;
+    if (changed) { s.revision++; }
     s.completeWeather = enabled;
-    save(SETTINGS, s);
+    saveSettings(s);
+    if (changed) { save(STATUS, {}); }
     return state();
   }
   function setAppData(enabled) {
     if (typeof enabled !== 'boolean') { throw {code:'INVALID_ARGS', message:'Choose whether ČHMÚ app data is enabled'}; }
     var s = settings();
-    if (s.appData !== enabled) { s.revision++; save(STATUS, {}); }
+    var changed = s.appData !== enabled;
+    if (changed) { s.revision++; }
     s.appData = enabled;
-    save(SETTINGS, s);
+    saveSettings(s);
+    if (changed) { save(STATUS, {}); }
     return state();
   }
   function setUVSource(source) {
     if (['chmu','open-meteo','off'].indexOf(source) < 0) { throw {code:'INVALID_ARGS', message:'Choose a supported UV source'}; }
     var s = settings();
-    if (s.uvSource !== source) { s.revision++; save(STATUS, {}); }
+    var changed = s.uvSource !== source;
+    if (changed) { s.revision++; }
     s.uvSource = source;
-    save(SETTINGS, s);
+    saveSettings(s);
+    if (changed) { save(STATUS, {}); }
     return state();
   }
   return {getWeather:getWeather, state:state, setStation:setStation, setCompleteWeather:setCompleteWeather, setAppData:setAppData, setUVSource:setUVSource};

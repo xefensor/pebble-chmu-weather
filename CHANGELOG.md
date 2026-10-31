@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0 release candidate 1
+
+- Reports the installed package version correctly in settings.
+- Fails settings saves clearly when local storage rejects them, preserving the
+  prior settings and diagnostics.
+- Serializes settings changes, restores controls after errors, and prevents
+  writes before a valid initial state has been confirmed.
+- Refines settings spacing and hierarchy with clear current-reading cards,
+  nearby station selection, separate source controls and expandable details.
+- Adds English/Czech text and light/dark presentation.
+- Prepares original weather icons, current listing text, privacy/source links,
+  a publishing checklist and release/source bundles.
+- Preserves the working timer-free native entrypoint, weather algorithms,
+  source choices, cache ages, permissions and observation provenance.
+- Remains a sideloadable plugin-preview candidate; publication is limited by
+  Pebble's invitation requirement and this candidate's device checks.
+
+## 0.5.1 runtime fix
+
+- Removes forbidden native `setTimeout`/`clearTimeout` access from the entrypoint.
+- Checks elapsed request budgets when native bridge calls finish and leaves
+  pending-Promise cancellation to the host's source-session timeout.
+- Adds regressions with throwing timer getters and corrects earlier smoke
+  harness assumptions. The user subsequently reported the plugin working.
+
 ## 0.5.0 beta
 
 - Adds conditional weather GETs using service-provided ETag or Last-Modified

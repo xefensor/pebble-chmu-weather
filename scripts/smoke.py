@@ -13,14 +13,14 @@ import zipfile
 import subprocess
 import sys
 
-from build import appinfo_from_package
+from build import appinfo_from_package, artifact_stem
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-    pbw = ROOT / "dist" / ("CHMU-Weather-" + package["version"] + ".pbw")
+    pbw = ROOT / "dist" / (artifact_stem(package) + ".pbw")
     script = (ROOT / "build/plugin.js").read_bytes()
     with zipfile.ZipFile(pbw) as archive:
         if json.loads(archive.read("appinfo.json")) != appinfo_from_package(package):

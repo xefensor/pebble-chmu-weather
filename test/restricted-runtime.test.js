@@ -77,7 +77,10 @@ function runtime(options={}) {
   if (!options.defaults) values.set('chmu.settings.v1',JSON.stringify({
     stations:{},appData:false,completeWeather:false,uvSource:'off',revision:0}));
   const localStorage = {getItem:key=>values.get(key)??null,
-    setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+    setItem:(key,value)=>{
+      if (options.failSettings && key==='chmu.settings.v1') throw Error('Internal storage failure');
+      values.set(key,value);
+    },removeItem:key=>values.delete(key)};
   class Clock extends Date {
     constructor(...args) { super(...(args.length?args:[now])); }
     static now() { return now; }
@@ -155,17 +158,35 @@ function runtime(options={}) {
     assert.equal(timerCalls.length,0,'Native plugin must never call forbidden timers');
     return result.data.instances[0].properties;
   }
-  async function configure(message) {
+  async function configure(message,allowError=false) {
     let result;
     await config(copy(message),value=>{result=copy(value);});
     assert.ok(result,'Config handler must reply');
-    assert.equal(result.error,undefined,result.error);
+    if (!allowError) assert.equal(result.error,undefined,result.error);
     assert.equal(timerCalls.length,0);
     return result;
   }
   return {read,readRaw,configure,urls,values,secure,refreshes,subscriptions,timerCalls,
     gpsCalls:()=>gpsCalls,secureWrites:()=>secureWrites,clock:value=>{now=value;}};
 }
+
+test('Restricted bundled plugin reports the package version in settings state',async()=>{
+  const host=runtime();
+  const state=await host.configure({type:'getState'});
+  assert.equal(state.version,require('../package.json').version);
+  assert.equal(host.urls.length,0,'Reading settings metadata does not fetch weather');
+  assert.equal(host.timerCalls.length,0,'Reading metadata must not access forbidden timers');
+});
+
+test('Restricted bundled plugin reports a rejected settings save without refreshing sources',async()=>{
+  const host=runtime({failSettings:true});
+  const result=await host.configure({type:'setCompleteWeather',enabled:true},true);
+  assert.equal(result.error,'Pebble could not save settings. Check available storage and try again.');
+  assert.equal((await host.configure({type:'getState'})).settings.completeWeather,false);
+  assert.deepEqual(host.refreshes,[],'a failed save cannot advertise a source configuration change');
+  assert.equal(host.urls.length,0);
+  assert.equal(host.timerCalls.length,0);
+});
 
 test('Restricted bundled plugin reads saved ČHMÚ observations without invoking timer globals',async()=>{
   const host=runtime();
