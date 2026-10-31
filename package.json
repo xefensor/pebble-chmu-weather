@@ -1,6 +1,6 @@
 {
   "name": "pebble-chmu-weather",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
   "author": "Xef",
   "license": "SEE LICENSE IN LICENSE",
@@ -38,7 +38,7 @@
       }
     ],
     "plugin": {
-      "description": "Unofficial ČHMÚ weather: measured nearby temperature, ALADIN hourly and full-day forecasts, and clear-sky noon UV from the ČHMÚ app. Calculated feels-like and sun times. Optional Open-Meteo fills rain probabilities and local forecasts up to seven days. Czech coverage.",
+      "description": "Unofficial ČHMÚ weather: nearby station temperature, humidity and wind; ALADIN hourly and full-day forecasts. Choose clear-sky ČHMÚ UV or Open-Meteo forecast UV. Optional Open-Meteo fills rain probabilities and up to seven local forecast days. Czech coverage.",
       "script": "plugin.js",
       "sources": [
         {
@@ -202,6 +202,18 @@
             ],
             "hourly_source": [
               "series.longText"
+            ],
+            "humidity_source": [
+              "longText"
+            ],
+            "wind_source": [
+              "longText"
+            ],
+            "humidity_observed_at": [
+              "timestamp"
+            ],
+            "wind_observed_at": [
+              "timestamp"
             ]
           }
         }

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 beta
+
+- Adds measured humidity and wind from the same station and timestamp as the
+  selected fresh temperature. Missing fields fall back independently to public
+  forecasts, with measurement/source timestamps retained.
+- Uses the richer ČHMÚ ten-minute climate graph and matching-time open-data
+  observations, with freshness and quality checks.
+- Lets Automatic try up to three eligible stations within 30 km, preferring a
+  similar elevation. A manually selected station remains fixed.
+- Limits the station picker to eligible nearby choices and shows distance and
+  elevation.
+- Adds clearer stale, network and coverage status, measurement age and the last
+  successful update to settings diagnostics.
+- Adds a separate **Preferred UV source** choice: ČHMÚ clear-sky noon (default), Open-Meteo
+  cloud-aware forecast peak, or Off. The full-day forecast checkbox now controls
+  only ČHMÚ local daily aggregates.
+- Keeps UV and daily forecasts independent. ČHMÚ UV can work with full-day
+  forecasts off; Open-Meteo UV requires completion to be enabled and never
+  turns it on automatically.
+
+
 ## 0.3.0 beta
 
 - Aligns Pebble's main Weather screen with the measured current temperature

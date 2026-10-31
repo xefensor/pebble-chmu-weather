@@ -14,8 +14,9 @@ The plugin selects station observations, converts units and rounds values for
 display. It maps published ČHMÚ icon meanings to Pebble's smaller condition
 vocabulary, uses quantitative classification where needed, and derives daily
 ranges from available ALADIN hours, requiring complete future days. When
-ČHMÚ app data is enabled, its fresh local daily aggregates supply full-day
-ranges and its UV records supply clear-sky noon estimates. The UV value
+ČHMÚ full-day forecasts are enabled, its fresh local daily aggregates supply
+full-day ranges. Choosing ČHMÚ as the preferred UV source independently uses
+its clear-sky noon estimates. The UV value
 is not relabelled as an instantaneous or cloud-adjusted measurement.
 
 These presentations can differ from ČHMÚ's own applications. Service access
@@ -34,7 +35,9 @@ This noncommercial beta uses the free forecast endpoint.
 
 When enabled, Open-Meteo supplies actual precipitation probabilities and
 missing or extended forecast values. Its forecast daily peak UV is used when
-usable ČHMÚ app UV is unavailable or app data is disabled. The plugin requests
+chosen explicitly, or when preferred ČHMÚ UV is unavailable and completion is
+enabled. UV can also be hidden independently of all other weather fields.
+The plugin requests
 the selected forecast town, converts units, maps WMO weather codes to Pebble's
 condition vocabulary and combines these forecasts with ČHMÚ data. It retains
 source metadata rather than attributing the combined output entirely to ČHMÚ.

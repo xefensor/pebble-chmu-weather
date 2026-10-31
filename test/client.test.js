@@ -72,9 +72,10 @@ function fixture(overrides={}) {
   // Existing channel regressions explicitly disable the app backend. New app
   // integration tests supply appHttp and exercise actual installation defaults.
   if (overrides.settings !== null) {
-    values.set('chmu.settings.v1', JSON.stringify({appData:false, ...(overrides.settings || {stations:{},completeWeather:false})}));
+    values.set('chmu.settings.v1', JSON.stringify({appData:false, uvSource:overrides.appHttp ? 'chmu' : 'off',
+      ...(overrides.settings || {stations:{},completeWeather:false})}));
   } else if (!overrides.appHttp) {
-    values.set('chmu.settings.v1', JSON.stringify({appData:false}));
+    values.set('chmu.settings.v1', JSON.stringify({appData:false,uvSource:'open-meteo'}));
   }
   const urls = [];
   const subscriptions = [];
@@ -127,7 +128,7 @@ function fixture(overrides={}) {
         return {ok:true,json:async()=>copy(supplementBody)};
       }
       if (url.includes('graf.meteogram/')) return {ok:true,json:async()=>copy(forecastBody)};
-      if (url.includes('graf.meteo-stanice.teplota-10m/')) return {ok:true,json:async()=>copy(graphBody)};
+      if (url.includes('graf.meteo-stanice.klima-10m/')) return {ok:true,json:async()=>copy(graphBody)};
       if (url.includes('opendata.chmi.cz/')) return {ok:true,json:async()=>copy(bulkFixture)};
       throw new Error('Unexpected URL '+url);
     },
@@ -254,13 +255,14 @@ test('Unsupported foreign places are omitted; entirely unsupported requests fail
   assert.equal(f.urls.length,0);
 });
 
-test('Diagnostics remove a still-saved location that has moved beyond supported coverage', async()=>{
+test('Diagnostics explain a still-saved location that has moved beyond supported coverage', async()=>{
   const f=fixture();
   await f.client.getWeather(REQUEST);
   assert.equal(f.client.state().locations.length,1);
   f.setPlaces([savedPlace('saved-cb',40,-74)]);
   await assert.rejects(f.client.getWeather(REQUEST));
-  assert.deepEqual(f.client.state().locations,[]);
+  assert.equal(f.client.state().locations[0].stationStatus,'out-of-range');
+  assert.equal(f.client.state().locations[0].temperature,undefined);
 });
 
 test('Hung graph and backup HTTP operations settle after their two bounded six-second attempts', async()=>{
@@ -578,6 +580,10 @@ test('A station selection change prevents an older pending reading from replacin
   await f.client.getWeather(REQUEST);
   assert.equal(f.client.state().locations.length,2);
   f.catalog.stations.push({...station,id:'second-station',name:'Second station'});
+  // The station is discovered before the next user selection is validated.
+  const status=JSON.parse(f.values.get('chmu.status.v1'));
+  status['saved-cb'].eligibleStations.push({id:'second-station',name:'Second station',distanceKm:3,elevation:station.elevation});
+  f.values.set('chmu.status.v1',JSON.stringify(status));
   holdStation=true;
   const oldRequest=f.client.getWeather(REQUEST,true).then(value=>({value}),error=>({error}));
   await flush();
@@ -737,7 +743,7 @@ test('Default app source supplies clear-sky UV and three local daily summaries, 
   assert.ok(!JSON.stringify(f.client.state()).includes('own-access'),'configuration never exposes credentials');
 });
 
-test('ČHMÚ app UV remains available with completion disabled, and turning app data off excludes its cache and HTTP', async()=>{
+test('ČHMÚ UV remains independently available when app daily summaries are disabled', async()=>{
   const f=fixture({settings:{appData:true,completeWeather:false},appHttp:appHTTP()});
   const first=await f.client.getWeather(REQUEST);
   assert.equal(first.instances[0].properties.uv_index.numericValue.value,1.5);
@@ -747,7 +753,7 @@ test('ČHMÚ app UV remains available with completion disabled, and turning app 
   assert.equal(f.client.setAppData(false).settings.appData,false);
   assert.equal(f.client.state().locations.length,0);
   const off=await f.client.getWeather(REQUEST);
-  assert.equal(off.instances[0].properties.uv_index,undefined);
+  assert.equal(off.instances[0].properties.uv_index.numericValue.value,1.5);
   assert.equal(off.instances[0].properties.app_forecast_updated_at,undefined);
   assert.equal(f.urls.filter(url=>url.includes('chmu.rails.cz')).length,before);
   f.restart();
@@ -757,12 +763,13 @@ test('ČHMÚ app UV remains available with completion disabled, and turning app 
   assert.equal(f.urls.filter(url=>url.includes('chmu.rails.cz')).length,before,'warm cache reusable only after re-enabling');
 });
 
-test('Missing today app UV falls back to Open-Meteo only when enabled, without borrowing a future date', async()=>{
+test('Preferred ČHMÚ UV falls back to enabled Open-Meteo without borrowing a future date', async()=>{
   const f=fixture({settings:null,appHttp:appHTTP({read:async url=>({ok:true,status:200,
     json:async()=>copy(url.includes('/uv_measures?')?appUVFixture.slice(1):appPlaceFixture)})})});
   let p=(await f.client.getWeather(REQUEST)).instances[0].properties;
   assert.equal(p.uv_index.numericValue.value,0);
   assert.match(p.uv_source.longText.text,/Open-Meteo/);
+  assert.equal(f.client.state().locations[0].uvStatus,'fallback');
   f.client.setCompleteWeather(false);
   p=(await f.client.getWeather(REQUEST)).instances[0].properties;
   assert.equal(p.uv_index,undefined);
@@ -793,7 +800,7 @@ test('Disabling app data while a request is pending rejects obsolete output and 
   await result;
   assert.equal(f.client.state().locations.length,0);
   const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
-  assert.match(p.uv_source.longText.text,/Open-Meteo/);
+  assert.match(p.uv_source.longText.text,/ČHMÚ/);
   assert.equal(p.app_forecast_updated_at,undefined);
   assert.throws(()=>f.client.setAppData('false'),error=>error.code==='INVALID_ARGS');
 });
@@ -828,7 +835,7 @@ test('A separate settings session disables already-resolved app data before a sl
   let release;
   const f=fixture({settings:null,appHttp:appHTTP(),http:(url,state,init)=>{
     if (url.startsWith('https://chmu.rails.cz/')) return appHTTP()(url,init);
-    if (url.includes('graf.meteo-stanice.teplota')) return new Promise(resolve=>{release=()=>resolve({ok:true,json:async()=>copy(observationFixture)});});
+    if (url.includes('graf.meteo-stanice.klima')) return new Promise(resolve=>{release=()=>resolve({ok:true,json:async()=>copy(observationFixture)});});
     if (url.includes('api.open-meteo.com/')) return {ok:true,json:async()=>supplementalForecast()};
     return {ok:true,json:async()=>forecast()};
   }});
@@ -875,4 +882,313 @@ test('Diagnostics tagged with a previous settings revision are hidden after a cr
   assert.equal(f.client.state().locations.length,0);
   f.restart();
   assert.equal(f.client.state().locations.length,0);
+});
+
+function measured(temperature=6.8, age=600, fields={}) {
+  return {dataPoints:[{timestamp:new Date(NOW-age*1000).toISOString(),values:{T:String(temperature),...fields}}],
+    dial:{T:{Code:'T',UnitHTML:'°C'},H:{Code:'H',UnitHTML:'%'},F:{Code:'F',UnitHTML:'m.s<sup>-1</sup>'},D:{Code:'D',UnitHTML:'°'}}};
+}
+function stationChoices() {
+  return ['a','b','c','d'].map((id,i)=>({...station,id,name:'Station '+id,
+    latitude:48.975+i*0.01,longitude:14.476,elevation:387,wsi:'station-wsi-'+id}));
+}
+
+test('Climate graph supplies measured humidity and wind with their original shared timestamp and provenance', async()=>{
+  const f=fixture();
+  f.setGraph(measured(6.8,600,{H:'86',F:'3.2',D:'324'}));
+  const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.ok(f.urls.some(url=>url.includes('/graf.meteo-stanice.klima-10m/')));
+  assert.equal(f.urls.some(url=>url.includes('teplota-10m')),false);
+  assert.equal(p.humidity.numericValue.value,86);
+  assert.ok(Math.abs(p.wind_speed.numericValue.value-11.52)<1e-10);
+  assert.equal(p.wind_direction.numericValue.value,324);
+  assert.equal(p.humidity_observed_at.timestamp.value,NOW/1000-600);
+  assert.equal(p.wind_observed_at.timestamp.value,NOW/1000-600);
+  const d=f.client.state().locations[0];
+  assert.match(d.humiditySource,/station/i);
+  assert.match(d.windSource,/station/i);
+  assert.equal(d.humidityObservedAt,NOW/1000-600);
+  assert.equal(d.windObservedAt,NOW/1000-600);
+  assert.equal(d.stationStatus,'fresh');
+  assert.equal(d.lastSuccessfulFetch,NOW/1000);
+  assert.equal(d.latestSampleAt,NOW/1000-600);
+  assert.equal(d.measurementAgeSec,600);
+});
+
+test('Automatic selection tries at most three stations and chooses fresh backups by distance rather than response order', async()=>{
+  let releaseCloser;
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteogram/')) return {ok:true,json:async()=>forecast()};
+    if(url.endsWith('/b')) return new Promise(resolve=>{releaseCloser=()=>resolve({ok:true,json:async()=>measured(9.1)});});
+    if(url.endsWith('/c')) return {ok:true,json:async()=>measured(10.2)};
+    return {ok:false,status:503};
+  }});
+  f.catalog.stations=stationChoices();
+  let result;
+  f.client.getWeather(REQUEST).then(value=>{result=value;});
+  await flush();
+  assert.equal(result,undefined,'a faster farther station cannot outrank the pending closer station');
+  assert.equal(typeof releaseCloser,'function');
+  releaseCloser();
+  await flush();
+  const p=result.instances[0].properties;
+  assert.equal(p.temperature.numericValue.value,9.1);
+  assert.equal(p.station.longText.text,'Station b');
+  assert.equal(f.client.state().locations[0].stationId,'b');
+  assert.ok(f.urls.some(url=>url.endsWith('/c')),'two backup graph requests run concurrently');
+  assert.equal(f.urls.some(url=>url.endsWith('/d')),false);
+});
+
+test('Unavailable first three automatic stations never expand into a fourth attempt', async()=>{
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteogram/')) return {ok:true,json:async()=>forecast()};
+    if(url.endsWith('/d')) return {ok:true,json:async()=>measured(12)};
+    return {ok:false,status:503};
+  }});
+  f.catalog.stations=stationChoices();
+  const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.temperature.numericValue.value,5);
+  assert.equal(p.is_forecast.boolean.value,true);
+  assert.equal(f.urls.filter(url=>url.includes('graf.meteo-stanice.klima')).length,3);
+  assert.equal(f.urls.some(url=>url.endsWith('/d')),false);
+  assert.equal(f.client.state().locations[0].stationStatus,'unavailable');
+});
+
+test('Manual station failure uses forecast and never silently switches to a fresh nearby station', async()=>{
+  const f=fixture({settings:{stations:{'saved-cb':'a'},completeWeather:false},http:async url=>{
+    if(url.includes('graf.meteogram/')) return {ok:true,json:async()=>forecast()};
+    if(url.endsWith('/b')) return {ok:true,json:async()=>measured(9.1)};
+    return {ok:false,status:503};
+  }});
+  f.catalog.stations=stationChoices();
+  const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.is_forecast.boolean.value,true);
+  assert.equal(f.urls.some(url=>/\/[bcd]$/.test(url)),false);
+  const d=f.client.state().locations[0];
+  assert.equal(d.stationMode,'manual');
+  assert.equal(d.requestedStationId,'a');
+  assert.equal(d.stationStatus,'unavailable');
+});
+
+test('Station picker exposes only sorted nearby public metadata and validates against the actual location eligibility', async()=>{
+  const f=fixture();
+  const choices=stationChoices();
+  const remote={...station,id:'remote',latitude:50,longitude:14.476};
+  f.catalog.stations=[choices[2],remote,choices[0],choices[1]];
+  await f.client.getWeather(REQUEST);
+  const state=f.client.state();
+  assert.equal(state.stations,undefined,'there is no global all-stations picker');
+  const eligible=state.locations[0].eligibleStations;
+  assert.deepEqual(eligible.map(s=>s.id),['a','b','c']);
+  for(const point of eligible) assert.deepEqual(Object.keys(point).sort(),['distanceKm','elevation','id','name']);
+  assert.equal(JSON.stringify(state).includes('latitude'),false);
+  assert.equal(JSON.stringify(state).includes('longitude'),false);
+  assert.throws(()=>f.client.setStation('saved-cb','remote'),error=>error.code==='INVALID_ARGS');
+  assert.equal(f.client.setStation('saved-cb','b').settings.stations['saved-cb'],'b');
+});
+
+test('Persisted out-of-range or unsupported manual stations stay unavailable until the user clears them', async()=>{
+  for(const id of ['remote','removed']) {
+    const f=fixture({settings:{stations:{'saved-cb':id},completeWeather:false}});
+    f.catalog.stations.push({...station,id:'remote',latitude:50,longitude:14.476});
+    const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+    assert.equal(p.is_forecast.boolean.value,true);
+    assert.equal(f.urls.some(url=>url.includes('graf.meteo-stanice')),false);
+    assert.equal(f.client.state().locations[0].stationStatus,id==='remote'?'out-of-range':'unsupported');
+    f.client.setStation('saved-cb','');
+    assert.equal((await f.client.getWeather(REQUEST)).instances[0].properties.temperature.numericValue.value,6.8);
+  }
+});
+
+test('Stale and unavailable observations retain honest last-sample and download diagnostics even when no weather is usable', async()=>{
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteo-stanice')) return {ok:true,json:async()=>measured(6.8,7200,{H:'86',F:'3.2',D:'324'})};
+    return {ok:false,status:503};
+  }});
+  await assert.rejects(f.client.getWeather(REQUEST),error=>error.code==='PLUGIN_UNAVAILABLE');
+  const d=f.client.state().locations[0];
+  assert.equal(d.stationStatus,'stale');
+  assert.equal(d.latestSampleAt,NOW/1000-7200);
+  assert.equal(d.latestSampleTemperatureC,6.8);
+  assert.equal(d.measurementAgeSec,7200);
+  assert.equal(d.lastSuccessfulFetch,NOW/1000);
+  assert.equal(d.observedAt,null);
+  assert.equal(d.temperature,'');
+  assert.equal(d.humidity,'');
+});
+
+test('No station at comparable elevation reports the reason and retains only the forecast', async()=>{
+  const f=fixture();
+  f.catalog.stations=[{...station,elevation:1400}];
+  const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.is_forecast.boolean.value,true);
+  assert.equal(f.client.state().locations[0].stationStatus,'no-suitable-station');
+  assert.match(f.client.state().locations[0].stationReason,/elevation/);
+});
+
+test('Three hung station attempts remain bounded by the original seventeen-second request budget', async()=>{
+  const f=fixture({http:async url=>url.includes('graf.meteogram/')
+    ? {ok:true,json:async()=>forecast()} : new Promise(()=>{})});
+  f.catalog.stations=stationChoices();
+  let result;
+  f.client.getWeather(REQUEST).then(value=>{result=value;});
+  await f.tick(16999);
+  assert.equal(result,undefined);
+  await f.tick(1);
+  assert.equal(result.instances[0].properties.is_forecast.boolean.value,true);
+  assert.equal(f.urls.filter(url=>url.includes('graf.meteo-stanice.klima')).length,3);
+  assert.equal(f.urls.some(url=>url.endsWith('/d')),false);
+  assert.equal(f.timers.size,0);
+});
+
+test('ČHMÚ UV works without app daily summaries or Open-Meteo, while UV off preserves app daily summaries', async()=>{
+  const f=fixture({settings:{appData:false,completeWeather:false,uvSource:'chmu'},appHttp:appHTTP()});
+  let p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.uv_index.numericValue.value,1.5);
+  assert.equal(p.app_forecast_updated_at,undefined);
+  assert.equal(f.urls.some(url=>url.includes('/places/nearest?')),false);
+  assert.equal(f.urls.some(url=>url.includes('open-meteo')),false);
+  f.client.setUVSource('off');
+  f.client.setAppData(true);
+  f.urls.length=0;
+  p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.uv_index,undefined);
+  assert.equal(p.uv_source,undefined);
+  assert.equal(p.uv_updated_at,undefined);
+  assert.equal(p.high.numericValue.value,8.88);
+  assert.ok(p.app_forecast_updated_at);
+  assert.equal(f.urls.some(url=>url.includes('/uv_measures?')),false);
+  assert.ok(f.urls.some(url=>url.includes('/places/nearest?')));
+  assert.equal(f.client.state().locations[0].uvStatus,'disabled');
+});
+
+test('Explicit Open-Meteo UV requires completion and never requests ČHMÚ UV', async()=>{
+  const f=fixture({settings:{appData:false,completeWeather:false,uvSource:'open-meteo'},appHttp:appHTTP()});
+  let p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.uv_index,undefined);
+  assert.equal(f.urls.some(url=>url.includes('chmu.rails.cz')||url.includes('open-meteo')),false);
+  assert.match(f.client.state().locations[0].uvReason,/requires.*enabled/);
+  f.client.setCompleteWeather(true);
+  p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.uv_index.numericValue.value,0);
+  assert.match(p.uv_source.longText.text,/Open-Meteo/);
+  assert.equal(f.urls.some(url=>url.includes('/uv_measures?')),false);
+});
+
+test('UV choice persists across sessions, changes revision once, and rejects unsupported settings', async()=>{
+  const f=fixture({settings:null,appHttp:appHTTP()});
+  await f.client.getWeather(REQUEST);
+  const original=f.client.state().settings.revision;
+  assert.equal(f.client.setUVSource('chmu').settings.revision,original);
+  for(const value of ['automatic','',null,12]) assert.throws(()=>f.client.setUVSource(value),error=>error.code==='INVALID_ARGS');
+  assert.equal(f.client.state().settings.revision,original);
+  assert.equal(f.client.setUVSource('open-meteo').settings.revision,original+1);
+  assert.deepEqual(f.client.state().locations,[]);
+  f.restart();
+  let p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.match(p.uv_source.longText.text,/Open-Meteo/);
+  f.client.setUVSource('off');
+  f.restart();
+  p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+  assert.equal(p.uv_index,undefined);
+  assert.equal(p.uv_source,undefined);
+  assert.equal(p.uv_updated_at,undefined);
+  assert.equal(f.client.state().settings.uvSource,'off');
+});
+
+test('A cross-session UV choice change rejects an already-resolved obsolete UV payload before publication', async()=>{
+  let release;
+  const f=fixture({settings:null,appHttp:appHTTP(),http:(url,state,init)=>{
+    if(url.startsWith('https://chmu.rails.cz/')) return appHTTP()(url,init);
+    if(url.includes('graf.meteo-stanice')) return new Promise(resolve=>{release=()=>resolve({ok:true,json:async()=>measured()});});
+    return {ok:true,json:async()=>url.includes('open-meteo')?supplementalForecast():forecast()};
+  }});
+  const original=f.client;
+  const pending=original.getWeather(REQUEST);
+  const rejected=assert.rejects(pending,error=>error.code==='PLUGIN_UNAVAILABLE');
+  await flush();
+  assert.ok(f.urls.some(url=>url.includes('/uv_measures?')));
+  f.restart();
+  f.client.setUVSource('off');
+  release();
+  await rejected;
+  assert.deepEqual(original.state().locations,[]);
+  assert.equal(original.state().settings.uvSource,'off');
+  assert.equal(f.client.state().settings.uvSource,'off');
+});
+
+test('Stale backup diagnostics keep the sample attributed to the station that supplied it', async()=>{
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteogram/')) return {ok:true,json:async()=>forecast()};
+    if(url.endsWith('/a')) return {ok:true,json:async()=>measured(1,9000)};
+    if(url.endsWith('/b')) return {ok:true,json:async()=>measured(2,7200)};
+    return {ok:false,status:503};
+  }});
+  f.catalog.stations=stationChoices();
+  await f.client.getWeather(REQUEST);
+  const d=f.client.state().locations[0];
+  assert.equal(d.stationId,'a');
+  assert.equal(d.latestSampleStationId,'b');
+  assert.equal(d.latestSampleStationName,'Station b');
+  assert.equal(d.latestSampleTemperatureC,2);
+  assert.equal(d.latestSampleAt,NOW/1000-7200);
+});
+
+test('A measurement expiring while optional feeds are pending becomes a forecast with an honest stale reason', async()=>{
+  let release;
+  const f=fixture({settings:null,supplementHttp:()=>new Promise(resolve=>{release=()=>resolve({ok:true,json:async()=>supplementalForecast()});})});
+  f.setGraph(measured(6.8,3599,{H:'86',F:'3.2',D:'324'}));
+  const pending=f.client.getWeather(REQUEST);
+  await flush();
+  f.setNow(NOW+2000);
+  release();
+  const p=(await pending).instances[0].properties;
+  assert.equal(p.is_forecast.boolean.value,true);
+  assert.equal(p.temperature.numericValue.value,5);
+  assert.equal(p.humidity_observed_at,undefined);
+  assert.equal(p.wind_observed_at,undefined);
+  const d=f.client.state().locations[0];
+  assert.equal(d.stationStatus,'stale');
+  assert.match(d.stationReason,/older than one hour/);
+  assert.equal(d.measurementAgeSec,3601);
+});
+
+test('Upgrading old source settings preserves disabled services when creating an independent UV preference', async()=>{
+  for(const complete of [false,true]) {
+    const f=fixture({settings:null,appHttp:appHTTP()});
+    f.values.set('chmu.settings.v1',JSON.stringify({appData:false,completeWeather:complete,stations:{}}));
+    f.restart();
+    assert.equal(f.client.state().settings.uvSource,complete?'open-meteo':'off');
+    const p=(await f.client.getWeather(REQUEST)).instances[0].properties;
+    assert.equal(f.urls.some(url=>url.includes('chmu.rails.cz')),false,'an upgrade must not re-enable the app service');
+    if(complete) assert.match(p.uv_source.longText.text,/Open-Meteo/);
+    else {assert.equal(p.uv_index,undefined);assert.equal(f.urls.some(url=>url.includes('open-meteo')),false);}
+    f.client.setUVSource('chmu');
+    assert.equal((await f.client.getWeather(REQUEST)).instances[0].properties.uv_index.numericValue.value,1.5,'explicit new UV choice can enable ČHMÚ independently');
+  }
+  const f=fixture({settings:null,appHttp:appHTTP()});
+  f.values.set('chmu.settings.v1',JSON.stringify({appData:true,completeWeather:false}));
+  f.restart();
+  assert.equal(f.client.state().settings.uvSource,'chmu');
+  f.client.setAppData(false);
+  assert.equal(f.client.state().settings.uvSource,'chmu','the new daily-only switch preserves the now-explicit UV preference');
+});
+
+test('An automatic station change never reuses another station original-sample diagnostics', async()=>{
+  let unavailable=false;
+  const f=fixture({http:async url=>{
+    if(url.includes('graf.meteogram/')) return {ok:true,json:async()=>forecast()};
+    if(!unavailable && url.endsWith('/a')) return {ok:true,json:async()=>measured(1)};
+    return {ok:false,status:503};
+  }});
+  f.catalog.stations=stationChoices().slice(0,1);
+  await f.client.getWeather(REQUEST);
+  unavailable=true;
+  f.catalog.stations=[stationChoices()[1]];
+  await f.client.getWeather(REQUEST);
+  const d=f.client.state().locations[0];
+  assert.equal(d.stationId,'b');
+  assert.equal(d.latestSampleAt,null);
+  assert.equal(d.latestSampleStationId,'');
+  assert.equal(d.lastSuccessfulFetch,null);
 });

@@ -13,6 +13,12 @@ var CONDITIONS = {
 function finite(value) { return typeof value === 'number' && isFinite(value); }
 function validTemp(value) { return finite(value) && value >= -100 && value <= 100; }
 function percent(value) { return finite(value) && value >= 0 && value <= 100; }
+function validWindSpeed(value) { return finite(value) && value >= 0 && value <= 150; }
+function validWindDirection(value) { return finite(value) && value >= 0 && value <= 360; }
+function sourceLabel(source) {
+  return source === 'station' ? 'ČHMÚ station measurement' :
+    source === 'ALADIN' ? 'ČHMÚ ALADIN forecast' : 'Open-Meteo forecast';
+}
 function validCode(value) {
   // Parser gap rows also use "unknown". They must not block a usable
   // supplementary condition when the rest of that hour can be completed.
@@ -72,8 +78,7 @@ function mergeHour(primary, extra) {
   var merged = {time: (primary || extra).time, sources: {}};
   var validators = {
     temperatureC: validTemp, conditionCode: validCode, humidity: percent,
-    windSpeed: function(v) { return finite(v) && v >= 0 && v <= 150; },
-    windDirection: function(v) { return finite(v) && v >= 0 && v <= 360; }
+    windSpeed: validWindSpeed, windDirection: validWindDirection
   };
   Object.keys(validators).forEach(function(field) {
     var validate = validators[field];
@@ -263,6 +268,7 @@ function buildInstance(options) {
   var appFetchTimes = [];
   var appForecastUsed = false;
   var supplementalUsed = false;
+  var supplementalUVUsed = false;
   function noteSources(hour, fields) {
     if (!hour) { return; }
     fields.forEach(function(field) {
@@ -302,25 +308,53 @@ function buildInstance(options) {
     properties.observed_at = timestamp(Math.floor(observation.observedAt));
     properties.observation_age = {numericValue: {value: Math.max(0, Math.floor((nowSec - observation.observedAt) / 60)), unit: 'min'}};
   }
-  if (currentHour && finite(currentHour.humidity) && currentHour.humidity >= 0 && currentHour.humidity <= 100) {
-    properties.humidity = {numericValue: {value: currentHour.humidity, unit: '%', min: 0, max: 100},
-      shortText: {text: Math.round(currentHour.humidity) + '%'}};
+  // Optional station values belong to this same fresh temperature sample.
+  // Select each field independently, without rewriting any forecast hour.
+  var measuredHumidity = measured && percent(observation.humidity);
+  var measuredWindSpeed = measured && validWindSpeed(observation.windSpeed);
+  var measuredWindDirection = measured && validWindDirection(observation.windDirection);
+  var humidity = measuredHumidity ? observation.humidity : currentHour && currentHour.humidity;
+  var windSpeed = measuredWindSpeed ? observation.windSpeed : currentHour && currentHour.windSpeed;
+  var windDirection = measuredWindDirection ? observation.windDirection : currentHour && currentHour.windDirection;
+  var humiditySource = measuredHumidity ? 'station' : currentHour && currentHour.sources.humidity;
+  var windSpeedSource = measuredWindSpeed ? 'station' : currentHour && currentHour.sources.windSpeed;
+  var windDirectionSource = measuredWindDirection ? 'station' : currentHour && currentHour.sources.windDirection;
+  var forecastFields = [];
+  if (percent(humidity)) {
+    properties.humidity = {numericValue: {value: humidity, unit: '%', min: 0, max: 100},
+      shortText: {text: Math.round(humidity) + '%'}};
+    properties.humidity_source = {longText:{text:sourceLabel(humiditySource)}};
+    if (measuredHumidity) { properties.humidity_observed_at = timestamp(Math.floor(observation.observedAt)); }
+    else { forecastFields.push('humidity'); }
   }
-  if (currentHour && finite(currentHour.windSpeed) && currentHour.windSpeed >= 0) {
+  if (validWindSpeed(windSpeed)) {
     var factor = {'m/s': 1, 'km/h': 3.6, mph: 2.2369362921, knots: 1.9438444924};
     var windUnit = Object.prototype.hasOwnProperty.call(factor, units.wind) ? units.wind : 'm/s';
-    var wind = currentHour.windSpeed * factor[windUnit];
+    var wind = windSpeed * factor[windUnit];
     properties.wind_speed = {numericValue: {value: wind, unit: windUnit}, shortText: {text: Math.round(wind) + ' ' + windUnit}};
+    if (!measuredWindSpeed) { forecastFields.push('windSpeed'); }
   }
-  if (currentHour && finite(currentHour.windDirection) && currentHour.windDirection >= 0 && currentHour.windDirection <= 360) {
-    properties.wind_direction = {numericValue: {value: currentHour.windDirection, unit: '°', min: 0, max: 360}};
+  if (validWindDirection(windDirection)) {
+    properties.wind_direction = {numericValue: {value: windDirection, unit: '°', min: 0, max: 360}};
+    if (!measuredWindDirection) { forecastFields.push('windDirection'); }
   }
-  noteSources(currentHour, ['humidity', 'windSpeed', 'windDirection']);
-  var apparent = currentHour ? apparentTemperature(temp, currentHour.humidity, currentHour.windSpeed) : null;
+  if (properties.wind_speed && properties.wind_direction && windSpeedSource === windDirectionSource) {
+    properties.wind_source = {longText:{text:sourceLabel(windSpeedSource)}};
+  } else if (properties.wind_speed || properties.wind_direction) {
+    var windSources = [];
+    if (properties.wind_speed) { windSources.push('Speed: ' + sourceLabel(windSpeedSource)); }
+    if (properties.wind_direction) { windSources.push('Direction: ' + sourceLabel(windDirectionSource)); }
+    properties.wind_source = {longText:{text:windSources.join('; ')}};
+  }
+  if (measuredWindSpeed || measuredWindDirection) {
+    properties.wind_observed_at = timestamp(Math.floor(observation.observedAt));
+  }
+  noteSources(currentHour, forecastFields);
+  var apparent = apparentTemperature(temp, humidity, windSpeed);
   if (apparent !== null) {
     properties.feels_like = tempShape(apparent, unit, true);
     properties.feels_like_source = {longText: {text: 'Calculated shade estimate; ' + temperatureSource +
-      ' temperature, ' + currentHour.sources.humidity + ' humidity and ' + currentHour.sources.windSpeed + ' wind'}};
+      ' temperature, ' + humiditySource + ' humidity and ' + windSpeedSource + ' wind'}};
   }
   var hourlyTemps = [];
   var hourlyCodes = [];
@@ -454,7 +488,8 @@ function buildInstance(options) {
     appFetchTimes.push(options.appForecastFetchedAt);
   }
   var extraToday = byExtraDate[dateKey(today)];
-  var appTodayUV = options.appUV && fresh(options.appUVFetchedAt, nowSec) && Array.isArray(options.appUV.days)
+  var uvSource = options.uvSource === undefined ? 'chmu' : options.uvSource;
+  var appTodayUV = uvSource === 'chmu' && options.appUV && fresh(options.appUVFetchedAt, nowSec) && Array.isArray(options.appUV.days)
     ? options.appUV.days.filter(function(day) {
       return day && day.date === dateKey(today) && finite(day.uvIndex) && day.uvIndex >= 0 && day.uvIndex <= 30 &&
         finite(day.updatedAt) && day.updatedAt > 0 && day.updatedAt <= nowSec + 600 && nowSec - day.updatedAt <= 7 * DAY;
@@ -464,12 +499,14 @@ function buildInstance(options) {
     properties.uv_source = {longText:{text:'ČHMÚ app (clear-sky noon forecast)'}};
     properties.uv_updated_at = timestamp(Math.floor(appTodayUV.updatedAt));
     appFetchTimes.push(options.appUVFetchedAt);
-  } else if (extraToday && finite(extraToday.uvIndex) && extraToday.uvIndex >= 0 && extraToday.uvIndex <= 30) {
+  } else if ((uvSource === 'chmu' || uvSource === 'open-meteo') && extraToday &&
+      finite(extraToday.uvIndex) && extraToday.uvIndex >= 0 && extraToday.uvIndex <= 30) {
     // This native field is today's forecast daily peak, not instantaneous UV.
     properties.uv_index = {numericValue: {value: extraToday.uvIndex, unit: '', min: 0}, shortText: {text: String(extraToday.uvIndex)}};
     properties.uv_source = {longText:{text:'Open-Meteo (forecast daily peak)'}};
     properties.uv_updated_at = timestamp(Math.floor(options.supplementalFetchedAt));
     supplementalUsed = true;
+    supplementalUVUsed = true;
   }
   if (extraToday && percent(extraToday.precipitationProbability)) {
     properties.precipitation = {numericValue: {value: extraToday.precipitationProbability, unit: '%', min: 0, max: 100},
@@ -477,7 +514,8 @@ function buildInstance(options) {
     supplementalUsed = true;
   }
   if (supplementalUsed) {
-    properties.supplemental_source = {longText: {text: 'Open-Meteo forecast supplement: precipitation probability and forecast gaps/extended days; UV when ČHMÚ app UV is unavailable'}};
+    properties.supplemental_source = {longText: {text: 'Open-Meteo forecast supplement: precipitation probability and forecast gaps/extended days' +
+      (supplementalUVUsed ? '; forecast daily peak UV' : '')}};
     properties.supplemental_updated_at = timestamp(Math.floor(options.supplementalFetchedAt));
   }
   if (appFetchTimes.length) { properties.app_data_fetched_at = timestamp(Math.floor(Math.min.apply(null, appFetchTimes))); }

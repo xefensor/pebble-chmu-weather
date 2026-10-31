@@ -1,8 +1,57 @@
 # Beta validation
 
-Version 0.3.0 checked on 31 October 2026. Earlier results below are historical.
+Version 0.4.0 checked on 31 October 2026. Earlier results below are historical.
 
-## 0.3.0 release checks
+## 0.4.0 release checks
+
+- `npm test`: **223 JavaScript tests and 12 Python packaging tests pass**.
+- `npm run build`: produces the 0.4.0 phone-only PBW with the existing UUID,
+  the same four network domains, updated settings and attribution.
+- `npm run smoke`: source modules and the byte-identical packaged plugin both
+  passed against live services. All 27 HTTP requests returned 200, including
+  own-installation login, token verification/refresh and seven authenticated
+  weather requests. One secure credential record was used; request checks
+  reported zero failures and no credentials were written to disk.
+- The final PBW SHA256 is
+  `4fdea3b482d17909d61376149242dcd20332ca3364bd12411284bf6ac4147774`.
+  The executed `plugin.js` SHA256 is
+  `45d4f6633ec19ff5414cc8108be2c1fdfd1eb10babdc75c0e911387a3fe234e7`.
+- The live check returned measured temperature, humidity **89%**, wind
+  **10.44 km/h** and direction **312°**, all carrying the same observation
+  timestamp. It verified independent field provenance, calculated feels-like,
+  the active-hour temperature blend and an unchanged next-hour forecast.
+- Defaults produced 48 hourly slots, seven daily forecasts, ČHMÚ UV **1.5**,
+  and ČHMÚ app daily high/low **8.88/4.7°C**. These describe the sampled weather.
+- The nearby-only picker and a pinned manual station passed live checks.
+  Automatic failover is covered by deterministic tests: at most three station
+  candidates, similar elevation, distance priority, no fourth attempt and no
+  silent replacement of a manual choice.
+- All source combinations passed: daily forecasts off with ČHMÚ UV on;
+  Open-Meteo UV without ČHMÚ service requests; Open-Meteo completion off with
+  an honest unavailable-UV explanation; UV hidden while completion continues;
+  daily aggregates without ČHMÚ UV requests; and ČHMÚ UV alone without daily
+  aggregates or Open-Meteo requests.
+
+New regressions cover same-time/same-station T/H/F/D parsing, units and quality,
+zero humidity/wind, missing optional fields, exact stale-source attribution,
+failed-location diagnostics, per-field observation/forecast fallback, wind
+conversion, UV settings across separate JS sessions and source changes during
+pending requests. A sample expiring while optional feeds finish becomes a
+forecast with a stale explanation. Migration tests verify that upgrading does
+not re-enable a ČHMÚ or Open-Meteo service disabled in 0.3.
+
+The live harness waits for its preceding HTTP jobs to settle before strict
+per-setting route checks: a forced refresh can legitimately coalesce an
+already-running request or use valid cached data after a timeout. App-service
+requests have a 14-second channel budget inside the overall 17-second source
+budget; individual HTTP timeouts remain bounded.
+
+Settings JavaScript passes a syntax check. The PBW is reproducible and the
+source archive excludes credentials, dependencies and nested release files.
+No physical phone/watch testing is claimed. Native Weather scheduling and
+field-display limitations described below remain unchanged in 0.4.0.
+
+## Historical 0.3.0 release checks
 
 - `npm test`: **181 JavaScript tests and 12 Python packaging tests pass**.
 - `npm run build`: produces the phone-only 0.3.0 PBW with the existing UUID,

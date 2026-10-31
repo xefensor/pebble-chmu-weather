@@ -30,8 +30,18 @@ Pebble.registerConfigHandler(async function(message, respond) {
       var appState = client.setAppData(message.enabled);
       Pebble.refreshSources(['weather/location']);
       respond(appState);
+    } else if (message.type === 'setUVSource') {
+      var uvState = client.setUVSource(message.source);
+      Pebble.refreshSources(['weather/location']);
+      respond(uvState);
     } else if (message.type === 'refresh') {
-      await client.getWeather({category:'weather', item:'location'}, true);
+      try { await client.getWeather({category:'weather', item:'location'}, true); }
+      catch (error) {
+        var unavailable = client.state();
+        unavailable.refreshError = 'Weather could not be refreshed. Check the location details below.';
+        respond(unavailable);
+        return;
+      }
       Pebble.refreshSources(['weather/location']);
       respond(client.state());
     } else { respond({error:'Unknown settings request'}); }

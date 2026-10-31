@@ -1,69 +1,94 @@
 # ČHMÚ Weather for Pebble
 
 Unofficial weather plugin by Xef. Nearby ČHMÚ station measurements supply the
-current temperature, and ALADIN supplies local forecasts. ČHMÚ app data adds
-full-day local ranges and clear-sky noon UV. Open-Meteo completes missing weather
-fields, rain probabilities and forecasts up to seven days.
+current temperature, humidity and wind when the station reports them together.
+ALADIN supplies local forecasts. ČHMÚ app data adds full-day local ranges and
+clear-sky noon UV, with separate controls for each. Open-Meteo completes missing
+weather fields, rain probabilities and forecasts up to seven days.
 
 The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install the 0.3.0 beta
+## Install the 0.4.0 beta
 
 1. In Pebble mobile app 1.16.x, enable **Settings → Plugins → Plugins /
    permissions preview**. Labels may change while plugins are in preview.
-2. Open [CHMU-Weather-0.3.0.pbw](dist/CHMU-Weather-0.3.0.pbw) with the Pebble app.
+2. Open [CHMU-Weather-0.4.0.pbw](dist/CHMU-Weather-0.4.0.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
-   `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com`. When upgrading,
-   Pebble may ask you to approve access to the new ČHMÚ app domain.
+   `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com` through Pebble's
+   normal permission flow.
 4. Select **Settings → Weather → Weather provider → ČHMÚ Weather**. This feeds
    the watch's Weather app and timeline, and watchfaces using Pebble weather.
    Your saved weather locations and units are used automatically.
 5. Open the plugin's settings and tap **Refresh ČHMÚ data** to inspect the
-   station, measurement time, UV source and other weather fields. You can choose
-   a different nearby temperature station for each location.
+   station, measurement time, last successful update and UV source. Choose from
+   nearby eligible stations or leave selection on Automatic.
 
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
 This is a sideloadable beta, not a Pebble Store release. Installation and
 end-to-end delivery inside the physical phone/watch runtime still need testing.
-Source: [CHMU-Weather-0.3.0-source.zip](dist/CHMU-Weather-0.3.0-source.zip).
+Source: [CHMU-Weather-0.4.0-source.zip](dist/CHMU-Weather-0.4.0-source.zip).
 
 ## Weather sources
 
 | Reading | Source and behavior |
 | --- | --- |
 | Current temperature | ČHMÚ station measurement, at most one hour old; otherwise a forecast marked `~` in direct plugin readings |
-| Conditions, humidity and wind | Valid public ALADIN forecast values first; Open-Meteo fills missing values when enabled |
+| Humidity and wind | Measurements from the temperature station at the same timestamp when available; each missing field falls back to public ALADIN, then enabled Open-Meteo |
+| Conditions | Public ALADIN forecast, with enabled Open-Meteo filling missing values |
 | Hourly series | 48 slots for today and tomorrow, anchored at local midnight; the active slot uses a fresh station measurement, other slots prefer public ALADIN forecasts |
 | Daily forecast | Fresh ČHMÚ app aggregates for the first three dates; public ALADIN ranges and enabled Open-Meteo complete the available local forecast, up to seven days |
-| UV | ČHMÚ app **clear-sky noon UV** by default; Open-Meteo forecast daily peak as fallback when enabled |
+| UV | Separate choice of ČHMÚ clear-sky noon UV, Open-Meteo cloud-aware forecast peak, or Off |
 | Precipitation probability | Open-Meteo hourly and daily probabilities; never inferred from rainfall amounts |
 | Feels-like temperature | Calculated shade estimate using the displayed temperature, relative humidity and sustained 10 m wind, when all inputs are usable |
 | Sunrise and sunset | Calculated locally with SunCalc |
 
-Two independent settings are on by default:
+Two forecast settings are on by default:
 
-- **Use ČHMÚ app data** adds the app's three-day local aggregates and UV. Its UV
-  assumes clear skies at noon: it can be higher than a forecast that
-  accounts for clouds, and is not an instantaneous measurement. Settings show
-  the UV source and its original update time. The plugin creates its own random
-  installation ID and service credentials automatically; you do not sign in.
-- **Use Open-Meteo to complete missing weather data** adds actual rain
-  probabilities, missing fields and later local forecast days. It also supplies
-  forecast peak UV when usable ČHMÚ app UV is unavailable.
+- **Use ČHMÚ full-day forecasts** adds the app service's three-day local
+  aggregates. This checkbox controls daily ranges and conditions only.
+- **Use Open-Meteo to complete missing weather data** adds rain probabilities,
+  missing fields and later local forecast days. Turning it off prevents all
+  Open-Meteo requests and use of cached Open-Meteo values.
 
-Turning either setting off stops future weather updates from contacting that
-source and excludes its cached values from plugin output. A request already
-sent can finish; disabling ČHMÚ app data blocks its follow-up requests and
-discards the obsolete weather result. ČHMÚ app UV still works with Open-Meteo off.
-With both off, the plugin uses public ČHMÚ measurements and ALADIN forecasts,
-plus local calculations; UV, rain probability and later days can be absent.
+The separate **Preferred UV source** setting has three choices:
+
+| Choice | Behavior |
+| --- | --- |
+| ČHMÚ — default | Clear-sky noon UV from the official app service; Open-Meteo forecast peak is a fallback only when completion is enabled |
+| Open-Meteo | Cloud-aware forecast daily peak; requires Open-Meteo completion to be enabled |
+| Off | Omits UV from plugin output |
+
+ČHMÚ UV assumes clear skies at noon and can be higher than the value expected
+under cloud cover. Neither UV option is an instantaneous measurement. Settings
+show the actual source, ČHMÚ's original update time or Open-Meteo's download
+time. Selecting
+Open-Meteo while completion is off shows an instruction to enable completion;
+it does not enable that service automatically.
+
+ČHMÚ UV works with **Use ČHMÚ full-day forecasts** off. To stop requests to the
+ČHMÚ app service, turn off full-day forecasts and choose Open-Meteo or Off for
+UV. The plugin creates its own random installation ID and service credentials
+when that service is needed; you do not sign in. With both forecast settings
+off and UV Off, public ČHMÚ observations, ALADIN and local calculations still
+work. Rain probabilities and later forecast days can be absent.
+
+When upgrading from 0.3.0, an existing disabled ČHMÚ app-data setting stays
+respected: UV starts on Open-Meteo if completion was enabled, or Off if both
+sources were disabled. New installations default to ČHMÚ UV.
+
+Changing a source setting excludes its disabled cached values. A request
+already sent can finish; obsolete updates do not replace the current readings.
 Turning a source off does not retract weather already stored by Pebble or
 another watchface. See [privacy information](PRIVACY.md) for network and storage
 details.
 
 For České Budějovice, automatic station selection normally chooses **Rožnov**.
+Automatic mode can try up to three eligible nearby stations when the first has
+no usable fresh temperature, within the request's time budget. A manually
+chosen station stays fixed. Missing humidity or wind never causes a reading
+from another station or timestamp to be silently attached to that temperature.
 Temperature retains decimal precision and rounds only once for display in the
 chosen Celsius or Fahrenheit unit. The actual observation timestamp controls
 freshness: downloading the same measurement never makes it younger.
@@ -87,13 +112,17 @@ version); the plugin cannot force that importer to run every 30 minutes.
 Station HTTP results can be reused for five minutes and forecasts for
 30 minutes across consumers. The settings Refresh button bypasses those short
 reuse windows; failures retain usable cached data with its original timestamps.
+Settings distinguish stale readings, network failures and places outside
+coverage. They retain the last successful download time and show the station
+measurement's age. A download time does not replace the measurement timestamp.
 
 ## Coverage and Pebble limitations
 
 The bundled catalogue covers Czech temperature stations and ALADIN town
 points. A forecast town and measurement station must be within 30 km.
-Automatic station selection prefers an elevation within 150 m of the model
-point when the forecast reports elevation. A station does not measure the
+When the model reports elevation, automatic selection requires stations within
+150 m of it and tries nearby alternatives from that suitable group. The station
+picker lists supported choices within 30 km with distance and elevation. A station does not measure the
 exact street or microclimate where the phone is. Unsupported places are
 omitted; Pebble's provider integration can fall back for that whole location.
 

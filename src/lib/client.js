@@ -4,6 +4,7 @@ var supplementModel = require('./supplement');
 var createAppClient = require('./app-client').createClient;
 var parseAppUV = require('./app-uv').parseUV;
 var parseAppWeather = require('./app-weather').parseWeather;
+var parseStationObservation = require('./station-observation').parseObservation;
 var buildInstance = require('./envelope').buildInstance;
 var REFRESH = 30 * 60000;
 var MAX_FORECAST_AGE = 6 * 3600000;
@@ -22,7 +23,7 @@ module.exports = function(options) {
   var catalog = options.catalog;
   var inFlight = {};
   var appClient = createAppClient(Object.assign({}, options, {
-    isEnabled:function() { return settings().appData; },
+    isEnabled:function() { var selected = settings(); return selected.appData || selected.uvSource === 'chmu'; },
     validateUV:function(body, now, point) { return !!parseAppUV(body, now, point); },
     validatePlace:function(body, now, point) { return !!parseAppWeather(body, now, point); }
   }));
@@ -34,8 +35,12 @@ module.exports = function(options) {
   }
   function settings() {
     var value = load(SETTINGS, {});
+    // An upgrade must not re-enable a service the user disabled in 0.3.
+    // Its single app-data switch also controlled UV before UV had its own choice.
+    var inheritedUV = value.appData === false ? value.completeWeather === false ? 'off' : 'open-meteo' : 'chmu';
     return {stations: value.stations && typeof value.stations === 'object' && !Array.isArray(value.stations) ? value.stations : {},
       completeWeather:value.completeWeather !== false, appData:value.appData !== false,
+      uvSource:['chmu','open-meteo','off'].indexOf(value.uvSource) >= 0 ? value.uvSource : inheritedUV,
       revision:Number.isSafeInteger(value.revision) && value.revision >= 0 ? value.revision : 0};
   }
   function deadline(start, timeout, budget) {
@@ -175,35 +180,41 @@ module.exports = function(options) {
     return inFlight[key];
   }
   async function observation(station, force, budget, selection) {
-    if (!station) { return null; }
+    var detail = {observed:null, fetchedAt:0, lastSuccessfulFetch:null, latest:null, status:'unavailable',
+      stationId:station && station.id || ''};
+    if (!station) { return detail; }
     var parse = function(body) {
-      var measured = model.parseObservation(body, options.now(), 3600);
+      var latest = parseStationObservation(body, options.now(), 7 * 86400);
       var bulk = body && body.data && body.data.data;
       var header = bulk && typeof bulk.header === 'string' && bulk.header.length <= 1000
         ? bulk.header.split(',').map(function(name) { return name.trim(); }) : bulk && bulk.header;
-      if (measured && bulk && Array.isArray(header) && Array.isArray(bulk.values)) {
+      if (latest && bulk && Array.isArray(header) && Array.isArray(bulk.values)) {
         var column = header.indexOf('STATION');
         var elementColumn = header.indexOf('ELEMENT');
         if (column >= 0 && bulk.values.some(function(row) {
           return Array.isArray(row) && row[elementColumn] === 'T' && row[column] !== station.wsi;
         })) { return null; }
       }
-      return measured;
+      return latest ? {latest:latest, observed:parseStationObservation(body, options.now(), 3600)} : null;
     };
-    try {
-      return (await resource('station.' + station.id, API + 'graf.meteo-stanice.teplota-10m/' +
-        encodeURIComponent(station.id), 5 * 60000, 3600000, parse, force, budget)).value;
-    } catch (ignored) {
-      // If elevation selection replaced this station, its shared graph request
-      // can finish for other consumers; do not start a discarded bulk backup.
-      if (selection && !selection.active) { return null; }
-      // Documented open data is an independent backup to the website graph API.
-      var day = new Date(options.now()).toISOString().slice(0,10).replace(/-/g,'');
-      var url = 'https://opendata.chmi.cz/meteorology/climate/now/data/10m-' +
-        encodeURIComponent(station.wsi) + '-' + day + '.json';
-      try { return (await resource('bulk.' + station.id, url, 15 * 60000, 3600000, parse, force, budget)).value; }
-      catch (unavailable) { return null; }
+    function accept(result) {
+      detail.lastSuccessfulFetch = Math.max(detail.lastSuccessfulFetch || 0, result.fetchedAt);
+      if (!detail.latest || result.value.latest.observedAt > detail.latest.observedAt) { detail.latest = result.value.latest; }
+      if (result.value.observed) { detail.observed = result.value.observed; detail.fetchedAt = result.fetchedAt; detail.status = 'fresh'; }
+      else if (!detail.observed && detail.latest) { detail.status = 'stale'; }
     }
+    try {
+      accept(await resource('climate.' + station.id, API + 'graf.meteo-stanice.klima-10m/' +
+        encodeURIComponent(station.id), 5 * 60000, 3600000, parse, force, budget));
+    } catch (ignored) {}
+    if (detail.observed || (selection && !selection.active) || options.now() >= budget.endsAt) { return detail; }
+    // Documented open data is an independent backup to the website graph API.
+    var day = new Date(options.now()).toISOString().slice(0,10).replace(/-/g,'');
+    var url = 'https://opendata.chmi.cz/meteorology/climate/now/data/10m-' +
+      encodeURIComponent(station.wsi) + '-' + day + '.json';
+    try { accept(await resource('bulk.' + station.id, url, 15 * 60000, 3600000, parse, force, budget)); }
+    catch (ignored) {}
+    return detail;
   }
   function supplemental(point, force, budget) {
     // Send the public forecast-town coordinates, never the phone's raw GPS.
@@ -216,42 +227,81 @@ module.exports = function(options) {
       function(body) { return supplementModel.parseForecast(body, options.now()); }, force, budget)
       .catch(function() { return {value:null, fetchedAt:0}; });
   }
-  async function location(place, request, userUnits, force, budget, completeWeather, appData, generation) {
+  function nearbyStations(place) {
+    return catalog.stations.map(function(station) {
+      return model.nearest([station], place.latitude, place.longitude, 30);
+    }).filter(function(candidate) { return candidate; }).sort(function(a, b) {
+      return a.distanceKm - b.distanceKm || String(a.point.id).localeCompare(String(b.point.id));
+    });
+  }
+  function publicStations(candidates) {
+    return candidates.map(function(candidate) {
+      return {id:candidate.point.id, name:candidate.point.name,
+        distanceKm:Math.round(candidate.distanceKm * 10) / 10, elevation:candidate.point.elevation};
+    });
+  }
+  function writeDiagnostic(place, generation, diagnostic) {
+    if (generation !== settings().revision) { return; }
+    var diagnostics = load(STATUS, {});
+    diagnostics[place.id] = Object.assign({id:place.id, name:place.name, settingsRevision:generation}, diagnostic);
+    save(STATUS, diagnostics);
+  }
+  async function location(place, request, userUnits, force, budget, completeWeather, appData, uvSource, generation) {
+    var eligible = nearbyStations(place);
+    var override = settings().stations[place.id];
+    var priorDiagnostic = load(STATUS, {})[place.id];
     var point = model.nearest(catalog.forecastPlaces, place.latitude, place.longitude, 30);
-    if (!point) { return null; }
+    if (!point) {
+      writeDiagnostic(place, generation, {eligibleStations:publicStations(eligible), stationMode:override ? 'manual' : 'automatic',
+        requestedStationId:override || '', stationStatus:'out-of-range',
+        stationReason:'No supported ČHMÚ forecast location within 30 km', uvPreference:uvSource,
+        uvStatus:'unavailable', uvReason:'Location is outside supported coverage', isForecast:true});
+      return null;
+    }
     var supplementalPromise = completeWeather ? supplemental(point.point, force, budget) : Promise.resolve({value:null, fetchedAt:0});
     // App authentication and the two app feeds share a smaller budget. A slow
     // optional channel must still leave time for the station/public feeds.
-    var appBudget = {endsAt:Math.min(budget.endsAt, options.now() + 10000)};
-    function appResource(method, parser) {
-      if (!appData) { return Promise.resolve({value:null, fetchedAt:0}); }
+    var appBudget = {endsAt:Math.min(budget.endsAt, options.now() + 14000)};
+    function appResource(method, parser, enabled) {
+      if (!enabled) { return Promise.resolve({value:null, fetchedAt:0}); }
       return appClient[method](point.point, force, appBudget).then(function(result) {
         return {value:parser(result.value, options.now(), point.point), fetchedAt:result.fetchedAt};
       }).catch(function() { return {value:null, fetchedAt:0}; });
     }
-    var appUVPromise = appResource('uv', parseAppUV);
-    var appForecastPromise = appResource('place', parseAppWeather);
+    var appUVPromise = appResource('uv', parseAppUV, uvSource === 'chmu');
+    var appForecastPromise = appResource('place', parseAppWeather, appData);
     var forecastPromise = resource('forecast.' + point.point.id, API + 'graf.meteogram/' +
       encodeURIComponent(point.point.id), REFRESH, MAX_FORECAST_AGE,
       function(body) { return model.parseForecast(body, options.now()); }, force, budget);
     // Start both requests together. Prefer a lowland station for a lowland
     // location rather than choosing a nearby mountain station by distance alone.
-    var nearby = model.nearest(catalog.stations, place.latitude, place.longitude, 30);
-    var override = settings().stations[place.id];
+    var nearby = eligible[0] || null;
+    var stationStatus;
+    var stationReason = '';
     if (override) {
       var station = catalog.stations.filter(function(s) { return s.id === override; })[0];
-      nearby = station ? model.nearest([station], place.latitude, place.longitude, 30) : null;
+      nearby = eligible.filter(function(candidate) { return candidate.point.id === override; })[0] || null;
+      if (!station) { stationStatus = 'unsupported'; stationReason = 'The selected station is no longer supported'; }
+      else if (!nearby) { stationStatus = 'out-of-range'; stationReason = 'The selected station is more than 30 km from this location'; }
     }
     var selection = {active:true};
-    var obsPromise = observation(nearby && nearby.point, force, budget, selection);
+    var attempted = [];
+    var controls = [];
+    function start(candidate, control) {
+      attempted.push(candidate.point.id);
+      controls.push(control);
+      return observation(candidate.point, force, budget, control);
+    }
+    var obsPromise = nearby ? start(nearby, selection) : Promise.resolve(null);
     var forecast;
     try { forecast = await forecastPromise; }
     catch (error) { forecast = {value:{hours:[]}, fetchedAt:0}; }
+    var suitable = eligible;
     if (!override && typeof forecast.value.elevation === 'number') {
-      var suitable = catalog.stations.filter(function(s) {
-        return typeof s.elevation === 'number' && Math.abs(s.elevation - forecast.value.elevation) <= 150;
+      suitable = eligible.filter(function(candidate) {
+        return typeof candidate.point.elevation === 'number' && Math.abs(candidate.point.elevation - forecast.value.elevation) <= 150;
       });
-      var chosen = model.nearest(suitable, place.latitude, place.longitude, 30);
+      var chosen = suitable[0] || null;
       if ((!chosen && nearby) || (chosen && (!nearby || chosen.point.id !== nearby.point.id))) {
         // We never silently attribute a mountain reading to another location.
         selection.active = false;
@@ -259,42 +309,123 @@ module.exports = function(options) {
         nearby = chosen;
         // The first station may still be waiting for its graph or bulk backup.
         // Do not serialize an unrelated, corrected station behind that work.
-        obsPromise = observation(nearby && nearby.point, force, budget, selection);
+        obsPromise = nearby ? start(nearby, selection) : Promise.resolve(null);
       }
     }
-    var observed = await obsPromise;
+    var detail = await obsPromise;
+    var attemptedDetails = detail ? [detail] : [];
+    if (!override && (!detail || !detail.observed) && attempted.length < 3 && options.now() < budget.endsAt) {
+      var backups = suitable.filter(function(candidate) { return attempted.indexOf(candidate.point.id) < 0; }).slice(0, 3 - attempted.length);
+      // Try at most two alternatives concurrently, then choose by distance
+      // order. A fast distant response cannot beat a fresh closer station.
+      var pending = backups.map(function(candidate) { return start(candidate, {active:true}); });
+      for (var i = 0; i < pending.length; i++) {
+        var alternative = await pending[i];
+        attemptedDetails.push(alternative);
+        if (alternative.observed && options.now() / 1000 - alternative.observed.observedAt <= 3600) {
+          nearby = backups[i]; detail = alternative; break;
+        }
+      }
+    }
+    controls.forEach(function(control) { control.active = false; });
+    if (!override && (!detail || !detail.observed)) {
+      // If none is current, describe the closest attempted station for which
+      // an original sample exists. Keep its name and sample tied together.
+      var staleDetail = attemptedDetails.filter(function(candidate) { return candidate && candidate.latest; })[0];
+      if (staleDetail) {
+        detail = staleDetail;
+        nearby = eligible.filter(function(candidate) { return candidate.point.id === detail.stationId; })[0] || nearby;
+      }
+    }
+    var observed = detail && detail.observed;
+    if (observed && options.now() / 1000 - observed.observedAt > 3600) { observed = null; }
+    if (!stationStatus) {
+      if (!nearby || !suitable.length) {
+        stationStatus = 'no-suitable-station';
+        stationReason = eligible.length ? 'No nearby station has a comparable elevation (within 150 m)' : 'No supported measurement station within 30 km';
+      } else if (observed) {
+        stationStatus = 'fresh';
+        stationReason = attempted.length > 1 ? 'Using the nearest suitable station with a fresh measurement' : 'Fresh station measurement';
+      } else {
+        stationStatus = attemptedDetails.some(function(candidate) { return candidate && candidate.latest; }) ? 'stale' : 'unavailable';
+        stationReason = stationStatus === 'stale' ? 'Available station measurements are older than one hour' : 'Nearby station measurement feeds are unavailable';
+      }
+    }
     var extra = await supplementalPromise;
     var appResults = await Promise.all([appUVPromise, appForecastPromise]);
+    // Optional feeds can finish after a once-fresh station sample expires.
+    // Keep the explanation consistent with the envelope's final freshness check.
+    if (observed && options.now() / 1000 - observed.observedAt > 3600) {
+      observed = null;
+      stationStatus = 'stale';
+      stationReason = 'The station measurement became older than one hour while refreshing';
+    }
     // A settings change can happen while any network channel is pending. Do
     // not publish an old-mode response or put it back into source diagnostics.
     if (generation !== settings().revision) { return null; }
     var instance = buildInstance({place:place, forecast:forecast.value,
       supplemental:extra.value, supplementalFetchedAt:extra.fetchedAt,
+      uvSource:uvSource,
       appUV:appResults[0].value, appUVFetchedAt:appResults[0].fetchedAt,
       appForecast:appResults[1].value, appForecastFetchedAt:appResults[1].fetchedAt,
       observation:observed, station:nearby && Object.assign({}, nearby.point, {distanceKm:nearby.distanceKm}),
       now:options.now(), fetchedAt:forecast.fetchedAt, units:userUnits, request:request});
-    if (!instance) { return null; }
-    var properties = instance.properties;
-    var diagnostics = load(STATUS, {});
-    diagnostics[place.id] = {id:place.id, name:place.name, settingsRevision:generation, station:nearby && nearby.point.name || '',
+    var properties = instance ? instance.properties : {};
+    var latest = detail && detail.latest;
+    var latestStation = nearby && nearby.point;
+    attemptedDetails.forEach(function(candidate) {
+      if (candidate && candidate.latest && (!latest || candidate.latest.observedAt > latest.observedAt)) {
+        latest = candidate.latest;
+        latestStation = catalog.stations.filter(function(station) { return station.id === candidate.stationId; })[0];
+      }
+    });
+    var lastSuccessfulFetch = detail && detail.lastSuccessfulFetch;
+    attemptedDetails.forEach(function(candidate) {
+      if (candidate) { lastSuccessfulFetch = Math.max(lastSuccessfulFetch || 0, candidate.lastSuccessfulFetch || 0) || null; }
+    });
+    if (!latest && priorDiagnostic && priorDiagnostic.requestedStationId === (override || '') &&
+        priorDiagnostic.stationId === (nearby && nearby.point.id || '') &&
+        priorDiagnostic.latestSampleStationId === priorDiagnostic.stationId) {
+      latest = priorDiagnostic.latestSampleAt ? {observedAt:priorDiagnostic.latestSampleAt, temperatureC:priorDiagnostic.latestSampleTemperatureC} : null;
+      lastSuccessfulFetch = lastSuccessfulFetch || priorDiagnostic.lastSuccessfulFetch || null;
+    }
+    var uvAvailable = !!properties.uv_index;
+    var actualUVSource = properties.uv_source && properties.uv_source.longText.text || '';
+    var uvFallback = uvSource === 'chmu' && uvAvailable && actualUVSource.indexOf('Open-Meteo') >= 0;
+    writeDiagnostic(place, generation, {station:nearby && nearby.point.name || '',
       stationId:nearby && nearby.point.id || '', distanceKm:nearby ? Math.round(nearby.distanceKm * 10) / 10 : null,
+      eligibleStations:publicStations(eligible), requestedStationId:override || '', stationMode:override ? 'manual' : 'automatic',
+      stationStatus:stationStatus, stationReason:stationReason, lastSuccessfulFetch:lastSuccessfulFetch,
+      observationFetchedAt:detail && detail.fetchedAt || null, latestSampleAt:latest && latest.observedAt || null,
+      latestSampleStationId:latest && latestStation ? latestStation.id : '',
+      latestSampleStationName:latest && latestStation ? latestStation.name : '',
+      latestSampleTemperatureC:latest ? latest.temperatureC : null,
+      measurementAgeSec:latest ? Math.max(0, Math.floor(options.now() / 1000) - latest.observedAt) : null,
       temperature:properties.temperature && properties.temperature.shortText.text || '',
       observedAt:properties.observed_at ? properties.observed_at.timestamp.value : null, fetchedAt:forecast.fetchedAt,
       temperatureSource:properties.source && properties.source.longText.text || '',
       isForecast:properties.is_forecast && properties.is_forecast.boolean.value || false,
       feelsLike:properties.feels_like && properties.feels_like.shortText.text || '',
       feelsLikeSource:properties.feels_like_source && properties.feels_like_source.longText.text || '',
+      humidity:properties.humidity && properties.humidity.shortText.text || '',
+      humiditySource:properties.humidity_source && properties.humidity_source.longText.text || '',
+      humidityObservedAt:properties.humidity_observed_at && properties.humidity_observed_at.timestamp.value,
+      wind:properties.wind_speed && properties.wind_speed.shortText.text || '',
+      windSource:properties.wind_source && properties.wind_source.longText.text || '',
+      windObservedAt:properties.wind_observed_at && properties.wind_observed_at.timestamp.value,
       uvIndex:properties.uv_index && properties.uv_index.numericValue.value,
-      uvSource:properties.uv_source && properties.uv_source.longText.text || '',
+      uvSource:actualUVSource,
       uvUpdatedAt:properties.uv_updated_at && properties.uv_updated_at.timestamp.value,
+      uvPreference:uvSource, uvStatus:uvSource === 'off' ? 'disabled' : uvFallback ? 'fallback' : uvAvailable ? 'available' : 'unavailable',
+      uvReason:uvSource === 'off' ? 'UV display disabled' : uvFallback ? 'ČHMÚ UV unavailable; using the enabled Open-Meteo supplement' : uvAvailable ? '' :
+        uvSource === 'open-meteo' && !completeWeather ? 'Open-Meteo UV requires the Open-Meteo supplement to be enabled' :
+        uvSource === 'chmu' ? 'ČHMÚ clear-sky UV forecast unavailable for today' : 'Open-Meteo UV forecast unavailable for today',
       appForecastUpdatedAt:properties.app_forecast_updated_at && properties.app_forecast_updated_at.timestamp.value,
-      appDataStatus:!appData ? 'ČHMÚ app data disabled' :
-        !appResults[0].value && !appResults[1].value ? 'ČHMÚ app data unavailable; using other enabled sources' : '',
+      appDataStatus:!appData ? 'ČHMÚ full-day forecasts disabled' :
+        !appResults[1].value ? 'ČHMÚ full-day forecasts unavailable; using other enabled sources' : '',
       precipitation:properties.precipitation && properties.precipitation.numericValue.value,
       forecastDays:properties.daily_high ? properties.daily_high.series.numericValue.values.length : 0,
-      supplementalSource:properties.supplemental_source && properties.supplemental_source.longText.text || ''};
-    save(STATUS, diagnostics);
+      supplementalSource:properties.supplemental_source && properties.supplemental_source.longText.text || ''});
     return instance;
   }
   async function getWeather(request, force) {
@@ -314,20 +445,21 @@ module.exports = function(options) {
     var selected = settings();
     var completeWeather = selected.completeWeather;
     var appData = selected.appData;
+    var uvSource = selected.uvSource;
     var generation = selected.revision;
     var instances = (await Promise.all(data[0].map(async function(place) {
-      try { return await location(place, request, data[1], force, budget, completeWeather, appData, generation); }
+      try { return await location(place, request, data[1], force, budget, completeWeather, appData, uvSource, generation); }
       catch (error) { errors.push(error); return null; }
     }))).filter(function(instance) { return instance; });
     if (generation !== settings().revision) {
       throw {code:'PLUGIN_UNAVAILABLE', message:'Weather sources changed; refresh again'};
     }
-    // A still-saved location can move out of coverage or lose all usable data.
-    // Only returned instances describe the current request's valid diagnostics.
+    // Keep failed saved locations visible so settings can explain stale feeds
+    // and out-of-range manual selections. Removed locations are still pruned.
     diagnostics = load(STATUS, {});
     active = {};
-    instances.forEach(function(instance) {
-      if (diagnostics[instance.instanceId]) { active[instance.instanceId] = diagnostics[instance.instanceId]; }
+    data[0].forEach(function(place) {
+      if (diagnostics[place.id]) { active[place.id] = diagnostics[place.id]; }
     });
     save(STATUS, active);
     if (!instances.length) {
@@ -359,14 +491,18 @@ module.exports = function(options) {
     var locations = Object.values(load(STATUS, {})).filter(function(value) {
       return value && (value.settingsRevision || 0) === selected.revision;
     });
-    return {version:'0.3.0', settings:selected, locations:locations,
-      stations:catalog.stations.map(function(s) { return {id:s.id, name:s.name}; })};
+    return {version:'0.4.0', settings:selected, locations:locations};
   }
   function setStation(locationId, stationId) {
     if (typeof locationId !== 'string' || !locationId || locationId.length > 128 ||
         locationId === '__proto__' || locationId === 'constructor' ||
         typeof stationId !== 'string' || (stationId && !catalog.stations.some(function(s) { return s.id === stationId; }))) {
       throw {code:'INVALID_ARGS', message:'Unknown station or location'};
+    }
+    var diagnostic = load(STATUS, {})[locationId];
+    if (stationId && diagnostic && Array.isArray(diagnostic.eligibleStations) &&
+        !diagnostic.eligibleStations.some(function(station) { return station.id === stationId; })) {
+      throw {code:'INVALID_ARGS', message:'Choose a station within 30 km of this location'};
     }
     var s = settings();
     if ((s.stations[locationId] || '') !== stationId) {
@@ -401,5 +537,13 @@ module.exports = function(options) {
     save(SETTINGS, s);
     return state();
   }
-  return {getWeather:getWeather, state:state, setStation:setStation, setCompleteWeather:setCompleteWeather, setAppData:setAppData};
+  function setUVSource(source) {
+    if (['chmu','open-meteo','off'].indexOf(source) < 0) { throw {code:'INVALID_ARGS', message:'Choose a supported UV source'}; }
+    var s = settings();
+    if (s.uvSource !== source) { s.revision++; save(STATUS, {}); }
+    s.uvSource = source;
+    save(SETTINGS, s);
+    return state();
+  }
+  return {getWeather:getWeather, state:state, setStation:setStation, setCompleteWeather:setCompleteWeather, setAppData:setAppData, setUVSource:setUVSource};
 };

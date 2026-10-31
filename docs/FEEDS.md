@@ -1,11 +1,11 @@
 # Weather feeds and bundled location catalogue
 
-Version 0.3.0 beta prefers ČHMÚ station measurements and public ALADIN
-forecasts. Its default-enabled **Use ČHMÚ app data** setting adds fresh local
-daily aggregates and clear-sky noon UV from the official app service.
-The independent, default-enabled Open-Meteo supplement completes missing
-fields, rain probabilities and forecasts up to seven local days. Turning either
-source off excludes its requests and cached weather values.
+Version 0.4.0 beta prefers fresh ČHMÚ station temperature, humidity and wind
+when they are reported together, then public ALADIN forecast fields. The
+**Use ČHMÚ full-day forecasts** setting adds fresh three-day local aggregates.
+The separate **Preferred UV source** selector chooses ČHMÚ clear-sky noon (default),
+Open-Meteo cloud-aware daily peak, or Off. Open-Meteo completion independently
+supplies missing fields, rain probabilities and up to seven local forecast days.
 
 Endpoint/schema checks were performed on 31 October 2026. ČHMÚ's website
 graphs are publicly readable; its app service uses installation authentication.
@@ -13,39 +13,66 @@ No supported public API contract was established for these backends. Keep
 parsing defensive and retain the published open-data export as an independent
 measurement backup.
 
-## Measured temperature
+## Measured station weather
 
 Primary endpoint:
 
 ```text
-https://data-provider.chmi.cz/api/graphs/graf.meteo-stanice.teplota-10m/{GH_ID}
+https://data-provider.chmi.cz/api/graphs/graf.meteo-stanice.klima-10m/{GH_ID}
 ```
 
 For České Budějovice, Rožnov:
 
 ```text
-https://data-provider.chmi.cz/api/graphs/graf.meteo-stanice.teplota-10m/C2CBUD01
+https://data-provider.chmi.cz/api/graphs/graf.meteo-stanice.klima-10m/C2CBUD01
 ```
 
 The [official station page](https://www.chmi.cz/w/c2cbud01-ceske-budejovice-roznov)
-constructs this URL in its graph component. A response contains `dataPoints`,
-each with an ISO UTC `timestamp` and `values.T` as a numeric string or null.
-`dial.T` identifies this as air temperature in °C. `TPM` is near-ground
-temperature; `T05`, `T10`, etc. are soil temperatures and must not substitute
-for `T`.
+uses these graph feeds. The combined ten-minute graph has `dataPoints`, each
+with an ISO UTC `timestamp` and a `values` object. Its `dial` describes units:
 
-The graph contains about 48 hours of ten-minute points. At 07:54 UTC on
-31 October, its newest Rožnov sample was 07:40 UTC, 6.8°C. The response was
-approximately 39 KB and advertised `Cache-Control: private, max-age=180,
-must-revalidate`. Those numbers describe that request, not guaranteed limits.
-Use the newest valid measurement's timestamp to calculate age; downloading
-the same sample again must not make it newer.
+| Field | Meaning | Unit |
+| --- | --- | --- |
+| `T` | Air temperature | °C |
+| `H` | Relative humidity | % |
+| `F` | Wind speed | m/s |
+| `D` | Wind direction | Degrees |
+
+The newest usable fresh `T` selects the measurement timestamp. Optional `H`,
+`F` and `D` must come from the same station and that exact timestamp. Values
+from an earlier row or another station are not attached to it. Each absent or
+invalid optional field can fall back independently to public ALADIN and then
+enabled Open-Meteo. `TPM` is near-ground temperature; soil temperatures such as
+`T05` and `T10` must not substitute for air-temperature `T`.
+
+The original timestamp controls age, with a one-hour maximum for measured
+weather. Downloading the same sample must not make it newer. The scalar
+humidity/wind source fields identify observations or forecasts; measured
+values expose `humidity_observed_at` and `wind_observed_at`. Feels-like uses the
+actual selected temperature, humidity and wind and retains their provenance.
 
 ČHMÚ's [measurement explanation](https://www.chmi.cz/namerena-data/data-z-mericich-stanic/aktualni-teplota)
 states that air temperature is measured in the ten-minute cycle, normally at
 2 m above the surface, and arrives with a delay of minutes to low tens of
 minutes. Operative data can later change during verification. A station
 measurement represents that station, not every street or altitude nearby.
+
+### Station selection and diagnostics
+
+Eligible stations come from the bundled temperature-capable catalogue and
+must be within 30 km. When the forecast point's elevation is known, automatic
+mode requires a station within 150 m of it. It can try up to three candidates
+from the suitable nearby group while the shared request deadline allows. A manual selection remains
+fixed; an unavailable manual station does not silently switch to another.
+
+The settings picker lists eligible nearby stations with distance and elevation.
+Per-location diagnostics include `stationMode`, `requestedStationId`, eligible
+choices, `stationStatus` and `stationReason`. They distinguish stale data,
+network failures and places outside coverage, preserve the last successful
+fetch timestamp and show the measurement's age.
+`latestSampleAt` and `measurementAgeSec` describe the source measurement;
+`observationFetchedAt` and `lastSuccessfulFetch` describe retrieval, not a new
+measurement. A failed refresh never renews a cached sample's timestamp.
 
 ### Published open-data backup
 
@@ -56,7 +83,9 @@ https://opendata.chmi.cz/meteorology/climate/now/data/10m-{WSI}-{YYYYMMDD}.json
 Rožnov's WSI is `0-20000-0-11546`, so one dated example is
 `10m-0-20000-0-11546-20261031.json`. The file is a published rolling/daily
 export; its latest available point can lag the live graph. Use the actual
-timestamps and select rows with `ELEMENT == "T"` and the expected station WSI.
+timestamps and require the expected station WSI. Select the newest acceptable
+`T` row, then optional `H`, `F` and `D` only when their `DT` equals that
+selected temperature's timestamp.
 
 The table is at `data.data`; `header` supplies the column names
 `STATION,ELEMENT,DT,VAL,FLAG,QUALITY`, and `values` contains rows. Do not infer
@@ -76,8 +105,10 @@ The accompanying `metadata/meta4-YYYYMMDD.json` defines quality codes:
 Live operative Rožnov measurements carried quality 5 during inspection.
 Treating every nonzero code as missing would therefore discard these actual
 observations. Code 5 means unknown quality, not verified quality. Estimated
-values must not be presented as station measurements. `meta3` describes
-element-specific flags and lists no special flag for air-temperature `T`.
+values must not be presented as station measurements. The same quality and
+validity checks apply to optional humidity and wind rows; missing, invalid or
+unexplained flagged values remain absent. `meta3` describes element-specific
+flags and lists no special flag for air-temperature `T`.
 
 ## ALADIN forecast
 
@@ -153,12 +184,11 @@ data can never exist. Open-Meteo fills those local fields when enabled.
 
 ## ČHMÚ app data
 
-**Use ČHMÚ app data** is enabled by default and controls both of these additions:
-
-- Three-day local date aggregates, used for fresh full-day ranges. These avoid
-  deriving today's high/low only from the hours remaining in the public graph.
-- The UV value used by the official ČHMÚ app, explicitly identified as a
-  **clear-sky noon estimate**.
+**Use ČHMÚ full-day forecasts** is enabled by default and controls only the
+three-day local date aggregates. They avoid deriving today's high/low only
+from the hours remaining in the public graph. The separate **Preferred UV source** choice
+controls the ČHMÚ app's clear-sky noon estimate. Either app-service channel can
+operate without the other.
 
 The service is hosted at `chmu.rails.cz`. The plugin obtains its own installation
 login and refresh credentials using a persistent random installation ID. It
@@ -204,7 +234,8 @@ that array covered only 24 hours ahead, whereas the date aggregates covered
 three dates. Its current/hourly and cumulative data did not supply relative
 humidity. The plugin therefore keeps the public 73-point ALADIN feed for hourly
 forecasts, humidity and other available fields, and keeps station observations
-for current temperature. It does not switch to the app's model temperature.
+for current temperature and available same-time humidity/wind. It does not
+switch to the app's model temperature.
 
 Fresh app date aggregates take priority for their available local dates;
 public ALADIN and enabled Open-Meteo fill remaining forecast coverage. The
@@ -235,15 +266,26 @@ or a cloud-adjusted estimate. It can therefore exceed Open-Meteo's forecast
 peak on a cloudy day without either value being a unit-conversion error.
 The UV source and meaning remain explicit in plugin diagnostics.
 
-If app UV is missing, stale or unavailable, Open-Meteo's forecast daily peak
-can supply UV only when **Use Open-Meteo to complete missing weather data** is
-on. With completion off, usable ČHMÚ app UV still works; if it is unavailable,
-UV is omitted. With app data off, subsequent weather updates make no
-app-service requests, including authentication, and previously cached app
-weather values are excluded. An update already underway may finish its
-authentication and weather requests; its results are not published after the
-source setting changes.
-Open-Meteo's independent setting then determines whether it can supply UV.
+The **Preferred UV source** setting is independent of the full-day forecast checkbox:
+
+| Stored value | UI choice | Output and network behavior |
+| --- | --- | --- |
+| `chmu` | ČHMÚ — default | Uses clear-sky noon UV; Open-Meteo forecast peak can fill unavailable app UV only when completion is on |
+| `open-meteo` | Open-Meteo | Uses cloud-aware forecast daily peak only while completion is on |
+| `off` | Off | Omits UV, including cached UV values |
+
+Selecting Open-Meteo while completion is off leaves UV unavailable and explains
+that completion must be enabled. It never changes the completion setting.
+When completion is off, no Open-Meteo requests or cached values are used, even
+for ČHMÚ UV fallback. When UV is Off but completion remains on, Open-Meteo can
+still be requested for precipitation probabilities and other forecast fields.
+
+Selecting ČHMÚ UV can request installation authentication and `uv_measures`
+even with full-day forecasts off. Only when full-day forecasts are off **and**
+UV is not set to ČHMÚ are all app-service requests and cached app data excluded.
+A request already sent can finish, but disabled channels do not start later
+requests or publish results under obsolete settings. Settings show the selected
+UV preference, actual source, status and reason.
 
 App data normally reuses a 30-minute fetch cache and can be reused offline for
 up to six hours after download, subject to the original source-age checks above.
@@ -274,7 +316,8 @@ gaps. Hourly values use their UTC timestamps. Daily values use the API's local
 date keys and reported offset, including when a response spans a daylight-saving
 transition. Download time records cache age, not a model issue time.
 
-ČHMÚ station temperature and valid public ALADIN hourly fields take priority.
+Fresh same-time ČHMÚ station temperature/humidity/wind and valid public
+ALADIN hourly forecast fields take priority.
 Fresh app local daily aggregates are preferred for the dates they provide;
 otherwise complete future ALADIN ranges remain preferred. Without usable app
 aggregates, today's ALADIN range can use the available part of the current day;
@@ -284,8 +327,8 @@ The plugin still exposes 48 hourly slots anchored at local midnight for today
 and tomorrow, not a promise of 48 future hours from the current moment.
 
 `uv_index_max` is today's **forecast maximum UV**, used for `uv_index` when
-usable ČHMÚ app UV is unavailable or app data is disabled. It is not an
-instantaneous UV reading. `precipitation_probability` supplies actual
+Open-Meteo is selected or as the enabled fallback for unavailable ČHMÚ UV.
+UV Off suppresses it. It is not an instantaneous UV reading. `precipitation_probability` supplies actual
 hourly probabilities, and `precipitation_probability_max` supplies the daily
 values. The scalar `precipitation` property is today's daily probability.
 Rainfall amounts in millimetres are never converted into percentages.
@@ -314,8 +357,8 @@ AT = T + 0.33 × e − 0.70 × wind − 4
 
 `T` is the actual displayed temperature in °C before rounding, `RH` is relative
 humidity in percent, and wind is sustained 10 m wind in m/s. A current station
-temperature can therefore be combined with ALADIN humidity/wind, or enabled
-supplemental forecast inputs when necessary. Input sources are retained in
+temperature uses same-station, same-time humidity/wind when available, with
+independent ALADIN or enabled supplemental forecast inputs when necessary. Input sources are retained in
 `feels_like_source`. The result is calculated and marked as an estimate; it is
 not an official measured ČHMÚ feels-like value. Missing or invalid inputs omit
 the result rather than substituting zero. It estimates shade conditions and

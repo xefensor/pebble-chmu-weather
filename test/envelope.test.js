@@ -66,6 +66,10 @@ function appOptions(overrides = {}) {
   });
 }
 
+function measurement(fields = {}) {
+  return Object.assign({temperatureC:6.8, observedAt:NOW / 1000 - 8 * 60}, fields);
+}
+
 test('App full-day local ranges override partial graph days without changing measured temperature or hourly data', () => {
   const p = buildInstance(appOptions()).properties;
   assert.equal(p.temperature.numericValue.value,6.8);
@@ -124,6 +128,61 @@ test('App calendar gaps do not shift daily values or turn national ranges into l
   assert.equal(p.daily_high.series.numericValue.values[3],28);
 });
 
+test('Explicit Open-Meteo UV ignores valid app UV while keeping independent app daily ranges', () => {
+  const p = buildInstance(appOptions({uvSource:'open-meteo', appUVFetchedAt:NOW / 1000 - 5 * 3600})).properties;
+  assert.equal(p.uv_index.numericValue.value,3);
+  assert.equal(p.uv_source.longText.text,'Open-Meteo (forecast daily peak)');
+  assert.equal(p.uv_updated_at.timestamp.value,NOW / 1000);
+  assert.equal(p.high.numericValue.value,14);
+  assert.equal(p.low.numericValue.value,1);
+  assert.match(p.daily_source.series.longText.values[0],/full-day app forecast/);
+  assert.equal(p.app_forecast_updated_at.timestamp.value,NOW / 1000 - 3600);
+  assert.equal(p.app_data_fetched_at.timestamp.value,NOW / 1000,'ignored app UV does not contribute an older download time');
+});
+
+test('UV off omits its value, source and update time without disabling app daily ranges or rain probabilities', () => {
+  const p = buildInstance(appOptions({uvSource:'off'})).properties;
+  for (const name of ['uv_index','uv_source','uv_updated_at']) assert.equal(p[name],undefined,name);
+  assert.equal(p.high.numericValue.value,14);
+  assert.equal(p.low.numericValue.value,1);
+  assert.equal(p.precipitation.numericValue.value,20);
+  assert.ok(p.app_forecast_updated_at);
+  assert.ok(p.supplemental_source);
+  assert.doesNotMatch(p.supplemental_source.longText.text,/UV/);
+});
+
+test('UV preference and supplement availability are independent: CHMU-first can fall back, Open-Meteo never borrows app UV', () => {
+  const absent = {days:[{date:'2026-11-01',uvIndex:8,updatedAt:NOW / 1000}]};
+  const preferred = buildInstance(appOptions({uvSource:'chmu', appUV:absent})).properties;
+  assert.equal(preferred.uv_index.numericValue.value,3);
+  assert.match(preferred.uv_source.longText.text,/Open-Meteo/);
+  for (const uvSource of ['chmu','open-meteo','off']) {
+    const p = buildInstance(appOptions({uvSource, supplemental:null, supplementalFetchedAt:0})).properties;
+    assert.equal(p.high.numericValue.value,14);
+    assert.equal(p.precipitation,undefined);
+    assert.equal(p.supplemental_source,undefined);
+    if (uvSource === 'chmu') {
+      assert.equal(p.uv_index.numericValue.value,1.5);
+      assert.match(p.uv_source.longText.text,/ČHMÚ/);
+    } else {
+      for (const name of ['uv_index','uv_source','uv_updated_at']) assert.equal(p[name],undefined,uvSource + '/' + name);
+    }
+  }
+  const missing = buildInstance(appOptions({uvSource:'chmu', appUV:absent, supplemental:null})).properties;
+  assert.equal(missing.uv_index,undefined);
+});
+
+test('Disabled UV-only downloads make no emitted source or freshness claim, and selected Open-Meteo preserves zero UV', () => {
+  const onlyUV = {timezone:'Europe/Prague',hours:[],days:[{date:'2026-10-31',uvIndex:0}]};
+  const off = buildInstance(appOptions({uvSource:'off',appForecast:null,supplemental:onlyUV})).properties;
+  for (const name of ['uv_index','uv_source','uv_updated_at','app_data_fetched_at','app_forecast_updated_at',
+    'supplemental_source','supplemental_updated_at']) assert.equal(off[name],undefined,name);
+  const selected = buildInstance(appOptions({uvSource:'open-meteo',appForecast:null,supplemental:onlyUV})).properties;
+  assert.equal(selected.uv_index.numericValue.value,0);
+  assert.equal(selected.app_data_fetched_at,undefined);
+  assert.match(selected.uv_source.longText.text,/Open-Meteo/);
+});
+
 test('Fresh measured 6.8°C is displayed as 7°C, not the current-hour ALADIN forecast of 5°C', () => {
   const p = buildInstance(options()).properties;
   assert.equal(p.temperature.shortText.text, '7°C');
@@ -134,6 +193,168 @@ test('Fresh measured 6.8°C is displayed as 7°C, not the current-hour ALADIN fo
   assert.equal(p.observation_age.numericValue.value, 8);
   assert.equal(p.station.longText.text, 'České Budějovice, Rožnov');
   assert.equal(p.source.longText.text, 'ČHMÚ station measurement');
+});
+
+test('Fresh measured zero humidity, calm wind and north direction retain values and original observation timestamps', () => {
+  const observation = measurement({humidity:0,windSpeed:0,windDirection:0});
+  const p = buildInstance(options({observation})).properties;
+  assert.equal(p.humidity.numericValue.value,0);
+  assert.equal(p.wind_speed.numericValue.value,0);
+  assert.equal(p.wind_direction.numericValue.value,0);
+  assert.equal(p.humidity_source.longText.text,'ČHMÚ station measurement');
+  assert.equal(p.wind_source.longText.text,'ČHMÚ station measurement');
+  assert.equal(p.humidity_observed_at.timestamp.value,observation.observedAt);
+  assert.equal(p.wind_observed_at.timestamp.value,observation.observedAt);
+  assert.equal(p.feels_like.numericValue.value,apparentTemperature(6.8,0,0));
+  assert.equal(p.feels_like_source.longText.text,'Calculated shade estimate; station temperature, station humidity and station wind');
+});
+
+test('Missing measured humidity and wind components fall back independently with exact mixed provenance', () => {
+  const rh = buildInstance(options({observation:measurement({humidity:67})})).properties;
+  assert.equal(rh.humidity.numericValue.value,67);
+  assert.equal(rh.wind_speed.numericValue.value,10.8);
+  assert.equal(rh.wind_direction.numericValue.value,315);
+  assert.equal(rh.humidity_source.longText.text,'ČHMÚ station measurement');
+  assert.equal(rh.wind_source.longText.text,'ČHMÚ ALADIN forecast');
+  assert.ok(rh.humidity_observed_at);
+  assert.equal(rh.wind_observed_at,undefined);
+  assert.equal(rh.feels_like.numericValue.value,apparentTemperature(6.8,67,3));
+  assert.equal(rh.feels_like_source.longText.text,'Calculated shade estimate; station temperature, station humidity and ALADIN wind');
+
+  const speed = buildInstance(options({observation:measurement({windSpeed:2})})).properties;
+  assert.equal(speed.humidity.numericValue.value,84);
+  assert.equal(speed.wind_speed.numericValue.value,7.2);
+  assert.equal(speed.wind_direction.numericValue.value,315);
+  assert.equal(speed.humidity_source.longText.text,'ČHMÚ ALADIN forecast');
+  assert.equal(speed.wind_source.longText.text,'Speed: ČHMÚ station measurement; Direction: ČHMÚ ALADIN forecast');
+  assert.equal(speed.humidity_observed_at,undefined);
+  assert.ok(speed.wind_observed_at);
+  assert.equal(speed.feels_like_source.longText.text,'Calculated shade estimate; station temperature, ALADIN humidity and station wind');
+
+  const direction = buildInstance(options({observation:measurement({windDirection:180})})).properties;
+  assert.equal(direction.wind_source.longText.text,'Speed: ČHMÚ ALADIN forecast; Direction: ČHMÚ station measurement');
+  assert.ok(direction.wind_observed_at);
+  assert.equal(direction.feels_like.numericValue.value,apparentTemperature(6.8,84,3));
+  assert.equal(direction.feels_like_source.longText.text,'Calculated shade estimate; station temperature, ALADIN humidity and ALADIN wind');
+});
+
+test('Invalid optional measurements fall back without coercing null, booleans or numeric strings', () => {
+  const cases = {
+    humidity:[null,undefined,'0',false,true,NaN,Infinity,-1,101,[],{}],
+    windSpeed:[null,undefined,'0',false,true,NaN,Infinity,-1,151,[],{}],
+    windDirection:[null,undefined,'0',false,true,NaN,Infinity,-1,361,[],{}]
+  };
+  const fields = {humidity:'humidity',windSpeed:'wind_speed',windDirection:'wind_direction'};
+  const expected = {humidity:84,windSpeed:10.8,windDirection:315};
+  for (const [field, values] of Object.entries(cases)) {
+    for (const value of values) {
+      const p = buildInstance(options({observation:measurement({[field]:value})})).properties;
+      assert.equal(p[fields[field]].numericValue.value,expected[field],field + '=' + String(value));
+      assert.equal(p.humidity_observed_at,undefined);
+      assert.equal(p.wind_observed_at,undefined);
+      assert.equal(p.humidity_source.longText.text,'ČHMÚ ALADIN forecast');
+      assert.equal(p.wind_source.longText.text,'ČHMÚ ALADIN forecast');
+    }
+  }
+  const boundary = buildInstance(options({observation:measurement({humidity:100,windSpeed:150,windDirection:360})})).properties;
+  assert.equal(boundary.humidity.numericValue.value,100);
+  assert.equal(boundary.wind_speed.numericValue.value,540);
+  assert.equal(boundary.wind_direction.numericValue.value,360);
+  assert.equal(boundary.feels_like,undefined,'wind outside the approximation guardrails does not borrow forecast wind');
+});
+
+test('Optional measurements are ignored when the same temperature sample is stale, future-invalid, or invalid', () => {
+  const samples = [null,
+    measurement({observedAt:NOW / 1000 - 3601}),
+    measurement({observedAt:NOW / 1000 + 301}),
+    measurement({observedAt:null}), measurement({temperatureC:null})];
+  for (const sample of samples) {
+    const observation = sample && Object.assign(sample,{humidity:10,windSpeed:9,windDirection:90});
+    const p = buildInstance(options({observation})).properties;
+    assert.equal(p.humidity.numericValue.value,84);
+    assert.equal(p.wind_speed.numericValue.value,10.8);
+    assert.equal(p.wind_direction.numericValue.value,315);
+    assert.equal(p.humidity_observed_at,undefined);
+    assert.equal(p.wind_observed_at,undefined);
+    assert.equal(p.humidity_source.longText.text,'ČHMÚ ALADIN forecast');
+    assert.equal(p.wind_source.longText.text,'ČHMÚ ALADIN forecast');
+    assert.equal(p.feels_like_source.longText.text,'Calculated shade estimate; ALADIN temperature, ALADIN humidity and ALADIN wind');
+  }
+});
+
+test('Complete fresh measurements supply humidity, wind and calculated feels-like even without a current forecast hour', () => {
+  const observation = measurement({humidity:67,windSpeed:2.75,windDirection:270});
+  const p = buildInstance(options({observation,forecast:{hours:[]},fetchedAt:0})).properties;
+  assert.equal(p.humidity.numericValue.value,67);
+  assert.equal(p.wind_speed.numericValue.value,9.9);
+  assert.equal(p.wind_direction.numericValue.value,270);
+  assert.equal(p.humidity_observed_at.timestamp.value,observation.observedAt);
+  assert.equal(p.wind_observed_at.timestamp.value,observation.observedAt);
+  assert.equal(p.feels_like.numericValue.value,apparentTemperature(6.8,67,2.75));
+  assert.equal(p.forecast_updated_at,undefined);
+  assert.equal(p.condition_code.longText.text,'unknown');
+  assert.equal(p.hourly_temperature.series.numericValue.values[8],6.8);
+});
+
+test('A missing current metric is not borrowed from a later hour, and incomplete wind source describes only the available component', () => {
+  const data = hours();
+  data[8].humidity = null;
+  data[8].windSpeed = null;
+  data[9].humidity = 99;
+  data[9].windSpeed = 9;
+  const o = options({forecast:{hours:data},observation:measurement({humidity:40})});
+  const p = buildInstance(o).properties;
+  assert.equal(p.humidity.numericValue.value,40);
+  assert.equal(p.wind_speed,undefined);
+  assert.equal(p.wind_direction.numericValue.value,315);
+  assert.equal(p.wind_source.longText.text,'Direction: ČHMÚ ALADIN forecast');
+  assert.equal(p.wind_observed_at,undefined);
+  assert.equal(p.feels_like,undefined);
+});
+
+test('Measured optional fields do not mutate raw forecasts or alter any hourly/daily forecast series', () => {
+  const o = withSupplement({observation:measurement({humidity:20,windSpeed:8,windDirection:180})});
+  const raw = JSON.stringify({forecast:o.forecast,supplemental:o.supplemental});
+  const baseline = buildInstance(withSupplement()).properties;
+  const p = buildInstance(o).properties;
+  assert.equal(JSON.stringify({forecast:o.forecast,supplemental:o.supplemental}),raw);
+  for (const name of ['hourly_temperature','hourly_source','hourly_condition_code','hourly_precipitation',
+    'daily_high','daily_low','daily_condition_code','daily_source','daily_precipitation']) {
+    assert.deepEqual(p[name],baseline[name],name);
+  }
+  assert.equal(p.humidity.numericValue.value,20);
+  assert.equal(p.wind_speed.numericValue.value,28.8);
+});
+
+test('Measured wind feeds feels-like in m/s independently of wind display units and converts Fahrenheit once', () => {
+  const observation = measurement({humidity:67,windSpeed:2.75,windDirection:270});
+  const expected = apparentTemperature(6.8,67,2.75);
+  const factors = {'m/s':1,'km/h':3.6,mph:2.2369362921,knots:1.9438444924};
+  for (const [wind, factor] of Object.entries(factors)) {
+    const p = buildInstance(options({observation,units:{temperature:'°F',wind}})).properties;
+    assert.ok(Math.abs(p.wind_speed.numericValue.value - 2.75 * factor) < 1e-10,wind);
+    assert.ok(Math.abs(p.feels_like.numericValue.value - (expected * 9 / 5 + 32)) < 1e-10,wind);
+    assert.equal(p.feels_like_source.longText.text,'Calculated shade estimate; station temperature, station humidity and station wind');
+    assert.equal(p.wind_source.longText.text,'ČHMÚ station measurement');
+  }
+});
+
+test('Overridden Open-Meteo current metrics do not falsely claim supplemental use or freshness', () => {
+  const data = hours();
+  Object.assign(data[8],{humidity:null,windSpeed:null,windDirection:null});
+  const extra = {timezone:'Europe/Prague',days:[],hours:[{time:START + 8 * 3600,
+    humidity:50,windSpeed:5,windDirection:90,temperatureC:null,conditionCode:'unknown'}]};
+  const o = options({forecast:{hours:data},supplemental:extra,supplementalFetchedAt:NOW / 1000,
+    observation:measurement({humidity:67,windSpeed:2.75,windDirection:270})});
+  const measured = buildInstance(o).properties;
+  assert.equal(measured.supplemental_source,undefined);
+  assert.equal(measured.supplemental_updated_at,undefined);
+  delete o.observation.windDirection;
+  const mixed = buildInstance(o).properties;
+  assert.equal(mixed.wind_source.longText.text,'Speed: ČHMÚ station measurement; Direction: Open-Meteo forecast');
+  assert.ok(mixed.supplemental_source);
+  assert.equal(mixed.supplemental_updated_at.timestamp.value,NOW / 1000);
+  assert.equal(mixed.feels_like_source.longText.text,'Calculated shade estimate; station temperature, station humidity and station wind');
 });
 
 test('Fahrenheit retains unrounded converted numeric precision and formats one rounded native reading', () => {

@@ -10,7 +10,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const catalog = require('../src/catalog.json');
 const createClient = require('../src/lib/client');
-const weather = require('../src/lib/weather');
+const {parseObservation} = require('../src/lib/station-observation');
 const {parseUV} = require('../src/lib/app-uv');
 const {parseWeather} = require('../src/lib/app-weather');
 const manifest = require('../package.json').pebble;
@@ -40,7 +40,9 @@ const secureStorage = {
 };
 const calls = [];
 const bodies = new Map(); // Only public weather bodies; authentication is never retained here.
+const weatherResponses = [];
 const children = new Set();
+const idleWaiters = [];
 let ownLoginIds = 0;
 let authenticatedGets = 0;
 let safetyFailures = 0;
@@ -136,6 +138,7 @@ function bridge(url, init={}) {
       done = true;
       clearTimeout(timer);
       children.delete(child);
+      if (!children.size) idleWaiters.splice(0).forEach(resolve => resolve());
       if (error) reject(error); else resolve(result);
     }
     const timer = setTimeout(() => {
@@ -170,6 +173,7 @@ function bridge(url, init={}) {
       }
       if (!record.pathname.startsWith('/api/v1/jwt/') && response.status >= 200 && response.status < 300) {
         bodies.set(url,response.body);
+        weatherResponses.push({url,body:response.body});
       }
       finish(null,{ok:response.status >= 200 && response.status < 300, status:response.status,
         json:async () => response.body});
@@ -177,6 +181,14 @@ function bridge(url, init={}) {
     child.stdin.on('error', () => {});
     child.stdin.end(JSON.stringify({url,init}));
   });
+}
+async function transportIdle() {
+  // Settings checks count newly started requests. Let prior real HTTP and its
+  // in-flight cleanup finish first; overlapping updates are covered by unit tests.
+  do {
+    if (children.size) await new Promise(resolve => idleWaiters.push(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+  } while (children.size);
 }
 const geolocation = {getCurrentPosition:() => { throw new Error('Saved coordinates must not invoke GPS'); }};
 const pebble = {
@@ -206,14 +218,38 @@ function verifyMeasured(p) {
   assert.equal(p.source?.longText?.text, 'ČHMÚ station measurement', 'Live station measurement branch must be verified');
   assert.equal(p.is_forecast.boolean.value,false);
   assert.ok(p.observed_at && p.station, 'Measurement provenance must be present');
-  const observations = [...bodies].filter(([url]) => {
+  const diagnostic = JSON.parse(localValues.get('chmu.status.v1'))['smoke-city-75'];
+  const station = catalog.stations.find(item => item.id === diagnostic.stationId);
+  assert.ok(station, 'Measured reading must identify a bundled station');
+  const observations = weatherResponses.filter(({url}) => {
     const parsed = new URL(url);
-    return parsed.hostname === 'data-provider.chmi.cz' && parsed.pathname === '/api/graphs/graf.meteo-stanice.teplota-10m/C2CBUD01' ||
-      parsed.hostname === 'opendata.chmi.cz' && parsed.pathname.includes('/10m-0-20000-0-11546-');
-  }).map(([,body]) => weather.parseObservation(unwrap(body),Date.now(),3600)).filter(Boolean);
-  const observation = observations.find(value => value.observedAt === p.observed_at.timestamp.value);
-  assert.ok(observation, 'The output observation timestamp must match the live graph or bulk sample actually used');
-  assert.equal(p.temperature.numericValue.value,observation.temperatureC);
+    return parsed.hostname === 'data-provider.chmi.cz' && parsed.pathname === '/api/graphs/graf.meteo-stanice.klima-10m/'+station.id ||
+      parsed.hostname === 'opendata.chmi.cz' && parsed.pathname.includes('/10m-'+station.wsi+'-');
+  }).map(({body}) => parseObservation(unwrap(body),Date.now(),3600)).filter(Boolean);
+  const observation = observations.find(value => value.observedAt === p.observed_at.timestamp.value &&
+    value.temperatureC === p.temperature.numericValue.value);
+  assert.ok(observation, 'The output observation must match the live selected-station graph or bulk sample');
+  for (const field of ['humidity','windSpeed','windDirection']) {
+    assert.equal(typeof observation[field],'number','Live station '+field+' branch must be verified');
+  }
+  assert.equal(p.humidity.numericValue.value,observation.humidity);
+  assert.equal(p.humidity_source.longText.text,'ČHMÚ station measurement');
+  assert.equal(p.humidity_observed_at.timestamp.value,observation.observedAt,'Measured humidity must share the temperature timestamp');
+  assert.equal(p.wind_speed.numericValue.unit,'km/h');
+  assert.equal(p.wind_speed.numericValue.value,observation.windSpeed*3.6);
+  assert.equal(p.wind_direction.numericValue.value,observation.windDirection);
+  assert.equal(p.wind_source.longText.text,'ČHMÚ station measurement');
+  assert.equal(p.wind_observed_at.timestamp.value,observation.observedAt,'Measured wind must share the temperature timestamp');
+  assert.equal(diagnostic.stationStatus,'fresh');
+  assert.equal(diagnostic.latestSampleAt,observation.observedAt);
+  assert.ok(diagnostic.lastSuccessfulFetch > 0 && diagnostic.lastSuccessfulFetch <= Date.now()/1000);
+  assert.ok(Math.abs(diagnostic.measurementAgeSec-(Math.floor(Date.now()/1000)-observation.observedAt)) <= 3);
+  assert.ok(diagnostic.eligibleStations.some(item => item.id === station.id));
+  diagnostic.eligibleStations.forEach((item,index,list) => {
+    assert.ok(item.distanceKm >= 0 && item.distanceKm <= 30,'Picker must contain only nearby eligible stations');
+    assert.ok(catalog.stations.some(known => known.id === item.id));
+    if (index) assert.ok(list[index-1].distanceKm <= item.distanceKm,'Picker choices must be sorted by distance');
+  });
   const hourly = p.hourly_temperature.series;
   const active = Math.floor((Date.now()/1000-hourly.start)/hourly.stepSec);
   assert.ok(active >= 0 && active < hourly.numericValue.values.length, 'Current hour must be within the native series');
@@ -227,11 +263,12 @@ function verifyMeasured(p) {
   assert.equal(hourly.numericValue.values[active+1],future.t2m,'Future hour must retain its ALADIN forecast');
   assert.equal(p.hourly_source.series.longText.values[active+1],'ČHMÚ ALADIN forecast');
 }
-function verifyComplete(p) {
+function verifyComplete(p,withUV=true) {
   verifyMeasured(p);
-  for (const name of ['humidity','feels_like','uv_index','precipitation','daily_precipitation','daily_sunrise','daily_sunset']) {
+  for (const name of ['humidity','feels_like','precipitation','daily_precipitation','daily_sunrise','daily_sunset']) {
     assert.ok(p[name], name + ' must be available in the live complete response');
   }
+  if (withUV) assert.ok(p.uv_index,'Selected live UV must be available');
   assert.equal(p.hourly_temperature.series.numericValue.values.length,48);
   assert.equal(p.daily_high.series.numericValue.values.length,7);
   assert.equal(p.daily_low.series.numericValue.values.length,7);
@@ -240,37 +277,46 @@ function verifyComplete(p) {
   assert.match(p.feels_like_source.longText.text,/Calculated shade estimate/);
   assert.ok(p.daily_source.series.longText.values.includes('Open-Meteo'), 'Later local days must come from Open-Meteo');
 }
-function verifyApp(p) {
-  const place = latestBody(APP,'/api/v2/places/nearest');
+function localDateAt(seconds) {
+  const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(seconds*1000));
+  const date = Object.fromEntries(parts.map(part => [part.type,part.value]));
+  return date.year+'-'+date.month+'-'+date.day;
+}
+function verifyAppUV(p) {
   const uv = latestBody(APP,'/api/v1/uv_measures');
-  assert.ok(place, 'Live authenticated app place request must succeed');
   assert.ok(uv, 'Live authenticated app UV request must succeed');
-  const daily = parseWeather(place,Date.now(),POINT);
   const parsedUV = parseUV(uv,Date.now());
-  assert.ok(daily && daily.days.length === 3, 'Live three-day app aggregates must be fresh; full-day branch cannot be skipped');
   assert.ok(parsedUV && parsedUV.days.length, 'Live app UV must be usable; app branch cannot be skipped');
-  const dateParts = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',
-    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(p.daily_high.series.start*1000));
-  const date = Object.fromEntries(dateParts.map(part => [part.type,part.value]));
-  const startDate = date.year+'-'+date.month+'-'+date.day;
-  const todayUV = parsedUV.days.find(d => d.date === startDate);
-  assert.ok(todayUV, 'Live app UV must include today');
+  const today = parsedUV.days.find(day => day.date === localDateAt(p.daily_high.series.start));
+  assert.ok(today, 'Live app UV must include today');
   assert.equal(p.uv_source.longText.text,'ČHMÚ app (clear-sky noon forecast)');
-  assert.equal(p.uv_index.numericValue.value,todayUV.uvIndex);
-  assert.equal(p.uv_updated_at.timestamp.value,todayUV.updatedAt,'Original UV updated_at must be retained');
+  assert.equal(p.uv_index.numericValue.value,today.uvIndex);
+  assert.equal(p.uv_updated_at.timestamp.value,today.updatedAt,'Original UV updated_at must be retained');
+  storedTokens();
+}
+function verifyAppDaily(p) {
+  const place = latestBody(APP,'/api/v2/places/nearest');
+  assert.ok(place, 'Live authenticated app place request must succeed');
+  const daily = parseWeather(place,Date.now(),POINT);
+  assert.ok(daily && daily.days.length === 3, 'Live three-day app aggregates must be fresh; full-day branch cannot be skipped');
   assert.equal(p.app_forecast_updated_at.timestamp.value,daily.updatedAt);
-  const days = daily.days.slice(0,3);
-  assert.equal(days[0].date,startDate);
-  days.forEach((day,index) => {
+  assert.equal(daily.days[0].date,localDateAt(p.daily_high.series.start));
+  daily.days.slice(0,3).forEach((day,index) => {
     assert.equal(p.daily_high.series.numericValue.values[index],day.highC,'Full-day app high must win over partial public hours');
     assert.equal(p.daily_low.series.numericValue.values[index],day.lowC,'Full-day app low must win over partial public hours');
     assert.equal(p.daily_source.series.longText.values[index],'ČHMÚ ALADIN (full-day app forecast)');
   });
   storedTokens();
 }
+function verifyApp(p) { verifyAppUV(p); verifyAppDaily(p); }
 function publicReading(label,p) {
   console.log(JSON.stringify({phase:label,place:p.name.shortText.text,reading:p.temperature.shortText.text,
     source:p.source.longText.text,station:p.station?.longText.text,observedAt:p.observed_at?.timestamp.value,
+    humidity:p.humidity?.numericValue.value,humiditySource:p.humidity_source?.longText.text,
+    humidityObservedAt:p.humidity_observed_at?.timestamp.value,wind:p.wind_speed?.numericValue.value,
+    windUnit:p.wind_speed?.numericValue.unit,windDirection:p.wind_direction?.numericValue.value,
+    windSource:p.wind_source?.longText.text,windObservedAt:p.wind_observed_at?.timestamp.value,
     feelsLike:p.feels_like?.shortText.text,uv:p.uv_index?.numericValue.value,uvSource:p.uv_source?.longText.text,
     uvUpdatedAt:p.uv_updated_at?.timestamp.value,high:p.high?.numericValue.value,low:p.low?.numericValue.value,
     forecastHours:p.hourly_temperature?.series.numericValue.values.length,
@@ -306,6 +352,7 @@ async function main() {
   assert.equal(typeof host.handler,'function');
   assert.equal(typeof host.config,'function');
   async function config(message) {
+    await transportIdle();
     let reply;
     await host.config(message,value => {reply=value;});
     assert.ok(reply && !reply.error,'Bundled config request must succeed');
@@ -329,42 +376,105 @@ async function main() {
   assert.equal(ownLoginIds,1,'Bundle must reuse the source run’s own installation instead of creating another');
   publicReading('bundle',p);
 
-  phase = 'app disabled, Open-Meteo UV fallback';
-  let state = await config({type:'setAppData',enabled:false});
-  assert.equal(state.settings.appData,false);
-  const appCount = count(APP);
-  p = await reading();
-  verifyComplete(p);
-  assert.equal(count(APP),appCount,'App-off must not request the app service');
-  assert.equal(p.uv_source.longText.text,'Open-Meteo (forecast daily peak)');
-  assert.equal(p.app_forecast_updated_at,undefined,'Disabled app aggregates must not be reused');
-  publicReading('app-off',p);
-
-  phase = 'both optional sources disabled';
-  state = await config({type:'setCompleteWeather',enabled:false});
-  assert.equal(state.settings.completeWeather,false);
-  const allOffCounts = {app:count(APP),om:count(OM)};
+  phase = 'nearby station picker and fixed manual selection';
+  let state = await config({type:'getState'});
+  const selectedStation = state.locations.find(item => item.id === 'smoke-city-75').stationId;
+  await config({type:'setStation',locationId:'smoke-city-75',stationId:selectedStation});
   p = await reading();
   verifyMeasured(p);
-  assert.equal(p.uv_index,undefined,'Both-off must omit UV');
-  assert.equal(p.uv_source,undefined);
-  assert.equal(p.precipitation,undefined,'Both-off must not reuse cached supplemental probability');
-  assert.equal(p.app_forecast_updated_at,undefined);
-  assert.equal(count(APP),allOffCounts.app);
-  assert.equal(count(OM),allOffCounts.om);
-  publicReading('both-off',p);
+  state = await config({type:'getState'});
+  let diagnostic = state.locations.find(item => item.id === 'smoke-city-75');
+  assert.equal(diagnostic.stationMode,'manual');
+  assert.equal(diagnostic.requestedStationId,selectedStation);
+  assert.equal(diagnostic.stationId,selectedStation);
+  await config({type:'setStation',locationId:'smoke-city-75',stationId:''});
+  p = await reading();
+  verifyMeasured(p);
 
-  phase = 'ČHMÚ app enabled with Open-Meteo disabled';
-  state = await config({type:'setAppData',enabled:true});
-  assert.equal(state.settings.appData,true);
+  phase = 'ČHMÚ UV independent of disabled full-day forecasts';
+  state = await config({type:'setAppData',enabled:false});
+  assert.equal(state.settings.appData,false);
+  assert.equal(state.settings.uvSource,'chmu');
+  let placeCount = count(APP,'/api/v2/places/nearest');
+  const uvCount = count(APP,'/api/v1/uv_measures');
+  await config({type:'refresh'});
+  p = await reading();
+  verifyComplete(p);
+  verifyAppUV(p);
+  assert.equal(count(APP,'/api/v2/places/nearest'),placeCount,'Daily-off must not request app daily aggregates');
+  assert.ok(count(APP,'/api/v1/uv_measures') > uvCount,'ČHMÚ UV must still use its independently enabled route');
+  assert.equal(p.app_forecast_updated_at,undefined,'Disabled app aggregates must not be reused');
+  publicReading('daily-off-chmu-uv',p);
+
+  phase = 'Open-Meteo UV with both app-service channels disabled';
+  state = await config({type:'setUVSource',source:'open-meteo'});
+  assert.equal(state.settings.uvSource,'open-meteo');
+  assert.equal(state.settings.completeWeather,true);
+  const noAppCount = count(APP);
+  await config({type:'refresh'});
+  p = await reading();
+  verifyComplete(p);
+  assert.equal(count(APP),noAppCount,'Daily-off plus non-ČHMÚ UV must not request any app-service route');
+  assert.equal(p.uv_source.longText.text,'Open-Meteo (forecast daily peak)');
+  assert.equal(p.app_forecast_updated_at,undefined);
+  publicReading('open-meteo-uv',p);
+
+  phase = 'Open-Meteo UV cannot enable disabled completion';
+  state = await config({type:'setCompleteWeather',enabled:false});
+  assert.equal(state.settings.completeWeather,false);
+  const disabledCounts = {app:count(APP),om:count(OM)};
+  p = await reading();
+  verifyMeasured(p);
+  assert.equal(p.uv_index,undefined,'Selected Open-Meteo UV must be unavailable while completion is off');
+  assert.equal(p.precipitation,undefined,'Disabled completion must not reuse cached probabilities');
+  assert.equal(count(APP),disabledCounts.app);
+  assert.equal(count(OM),disabledCounts.om);
+  state = await config({type:'getState'});
+  diagnostic = state.locations.find(item => item.id === 'smoke-city-75');
+  assert.equal(state.settings.completeWeather,false,'UV selection must never enable completion implicitly');
+  assert.equal(diagnostic.uvStatus,'unavailable');
+  assert.match(diagnostic.uvReason,/requires.*enabled/i);
+  publicReading('open-meteo-disabled',p);
+
+  phase = 'UV Off suppresses cached UV while completion remains enabled';
+  await config({type:'setUVSource',source:'off'});
+  await config({type:'setCompleteWeather',enabled:true});
+  const offAppCount = count(APP);
+  p = await reading();
+  verifyComplete(p,false);
+  assert.equal(p.uv_index,undefined);
+  assert.equal(p.uv_source,undefined);
+  assert.equal(count(APP),offAppCount);
+  publicReading('uv-off',p);
+
+  phase = 'full-day forecasts remain independent of UV Off';
+  await config({type:'setAppData',enabled:true});
+  const noUVCount = count(APP,'/api/v1/uv_measures');
+  placeCount = count(APP,'/api/v2/places/nearest');
+  await config({type:'refresh'});
+  p = await reading();
+  verifyComplete(p,false);
+  verifyAppDaily(p);
+  assert.equal(p.uv_index,undefined);
+  assert.equal(count(APP,'/api/v1/uv_measures'),noUVCount);
+  assert.ok(count(APP,'/api/v2/places/nearest') > placeCount);
+  publicReading('daily-on-uv-off',p);
+
+  phase = 'ČHMÚ UV with daily forecasts and Open-Meteo disabled';
+  await config({type:'setAppData',enabled:false});
+  await config({type:'setCompleteWeather',enabled:false});
+  await config({type:'setUVSource',source:'chmu'});
   const omCount = count(OM);
+  placeCount = count(APP,'/api/v2/places/nearest');
   await config({type:'refresh'});
   p = await reading();
   verifyMeasured(p);
-  verifyApp(p);
-  assert.equal(count(OM),omCount,'App-on with completion-off must not request Open-Meteo');
+  verifyAppUV(p);
+  assert.equal(count(OM),omCount,'Completion-off must not request Open-Meteo for any UV mode');
+  assert.equal(count(APP,'/api/v2/places/nearest'),placeCount);
+  assert.equal(p.app_forecast_updated_at,undefined);
   assert.equal(p.precipitation,undefined);
-  publicReading('app-only',p);
+  publicReading('chmu-uv-only',p);
   storedTokens();
   assert.equal(safetyFailures,0,'Every live request must satisfy the transport, coordinate and credential checks');
   console.log(JSON.stringify({result:'passed',pbwSha256:process.env.CHMU_SMOKE_PBW_SHA256,bundleSha256:bundleDigest,ownInstallationLogins:ownLoginIds,
