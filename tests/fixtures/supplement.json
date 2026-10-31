@@ -1,0 +1,167 @@
+{
+  "latitude": 48.988815,
+  "longitude": 14.4821415,
+  "utc_offset_seconds": 3600,
+  "timezone": "Europe/Prague",
+  "hourly_units": {
+    "time": "unixtime",
+    "temperature_2m": "°C",
+    "relative_humidity_2m": "%",
+    "precipitation_probability": "%",
+    "precipitation": "mm",
+    "weather_code": "wmo code",
+    "wind_speed_10m": "m/s",
+    "wind_direction_10m": "°"
+  },
+  "daily_units": {
+    "time": "unixtime",
+    "temperature_2m_max": "°C",
+    "temperature_2m_min": "°C",
+    "weather_code": "wmo code",
+    "uv_index_max": "",
+    "precipitation_probability_max": "%"
+  },
+  "hourly": {
+    "time": [
+      1793433600,
+      1793437200,
+      1793440800,
+      1793444400,
+      1793448000,
+      1793451600,
+      1793455200,
+      1793458800
+    ],
+    "temperature_2m": [
+      6.6,
+      7.0,
+      7.4,
+      8.0,
+      8.4,
+      8.5,
+      8.7,
+      8.6
+    ],
+    "relative_humidity_2m": [
+      89,
+      85,
+      81,
+      80,
+      79,
+      77,
+      78,
+      77
+    ],
+    "precipitation_probability": [
+      3,
+      43,
+      68,
+      70,
+      38,
+      20,
+      20,
+      33
+    ],
+    "precipitation": [
+      0.0,
+      0.0,
+      0.1,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "weather_code": [
+      51,
+      61,
+      61,
+      3,
+      61,
+      3,
+      3,
+      61
+    ],
+    "wind_speed_10m": [
+      2.13,
+      2.41,
+      2.42,
+      2.62,
+      2.73,
+      3.19,
+      2.33,
+      2.19
+    ],
+    "wind_direction_10m": [
+      319,
+      318,
+      330,
+      317,
+      332,
+      328,
+      317,
+      336
+    ]
+  },
+  "daily": {
+    "time": [
+      1793401200,
+      1793487600,
+      1793574000,
+      1793660400,
+      1793746800,
+      1793833200,
+      1793919600
+    ],
+    "temperature_2m_max": [
+      8.7,
+      8.6,
+      6.9,
+      5.5,
+      7.3,
+      8.5,
+      6.8
+    ],
+    "temperature_2m_min": [
+      6.1,
+      4.6,
+      3.8,
+      3.8,
+      2.7,
+      2.6,
+      4.0
+    ],
+    "weather_code": [
+      80,
+      80,
+      3,
+      3,
+      3,
+      3,
+      3
+    ],
+    "uv_index_max": [
+      0.75,
+      1.85,
+      1.9,
+      1.4,
+      1.95,
+      2.1,
+      2.15
+    ],
+    "precipitation_probability_max": [
+      70,
+      88,
+      3,
+      5,
+      0,
+      0,
+      0
+    ]
+  },
+  "_fixture": {
+    "source": "https://api.open-meteo.com/v1/forecast",
+    "capturedAt": "2026-10-31T08:38:54.278784+00:00",
+    "note": "Unmodified eight-hour slice and seven daily records from the live response captured for this project; Celsius, m/s, mm, unixtime, Europe/Prague."
+  }
+}

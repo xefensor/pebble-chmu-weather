@@ -1,0 +1,60 @@
+{
+  "zaznamID": "203cf06b-1794-ac89-7f7b-b7634697c219",
+  "datovyZdrojID": "meteorologie",
+  "datovyTokID": "Open.Data.10M",
+  "datumVytvoreni": "2026-10-31T08:01:08.358Z",
+  "verzeDat": "1.0",
+  "data": {
+    "type": "DataCollection",
+    "data": {
+      "header": "STATION,ELEMENT,DT,VAL,FLAG,QUALITY",
+      "values": [
+        [
+          "0-20000-0-11546",
+          "T",
+          "2026-10-31T07:10:00Z",
+          6.6,
+          "",
+          5
+        ],
+        [
+          "0-20000-0-11546",
+          "T",
+          "2026-10-31T07:20:00Z",
+          6.7,
+          "",
+          5
+        ],
+        [
+          "0-20000-0-11546",
+          "T",
+          "2026-10-31T07:30:00Z",
+          6.7,
+          "",
+          5
+        ],
+        [
+          "0-20000-0-11546",
+          "T",
+          "2026-10-31T07:40:00Z",
+          6.8,
+          "",
+          5
+        ],
+        [
+          "0-20000-0-11546",
+          "T",
+          "2026-10-31T07:50:00Z",
+          6.8,
+          "",
+          5
+        ]
+      ]
+    }
+  },
+  "_fixture": {
+    "source": "https://opendata.chmi.cz/meteorology/climate/now/data/10m-0-20000-0-11546-20261031.json",
+    "capturedAt": "2026-10-31T08:11:51.961921+00:00",
+    "note": "Unmodified five-row temperature slice; QUALITY5 is Unknown in official meta4."
+  }
+}

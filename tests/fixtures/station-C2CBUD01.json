@@ -1,0 +1,94 @@
+{
+  "dataPoints": [
+    {
+      "timestamp": "2026-10-31T07:20:00Z",
+      "values": {
+        "T": "6.7",
+        "TPM": null,
+        "T05": "9.4",
+        "T10": "9.9",
+        "T20": "10.3",
+        "T50": "11.4",
+        "T100": "12.8"
+      }
+    },
+    {
+      "timestamp": "2026-10-31T07:30:00Z",
+      "values": {
+        "T": "6.7",
+        "TPM": null,
+        "T05": "9.4",
+        "T10": "9.9",
+        "T20": "10.3",
+        "T50": "11.4",
+        "T100": "12.8"
+      }
+    },
+    {
+      "timestamp": "2026-10-31T07:40:00Z",
+      "values": {
+        "T": "6.8",
+        "TPM": null,
+        "T05": "9.4",
+        "T10": "9.9",
+        "T20": "10.3",
+        "T50": "11.4",
+        "T100": "12.8"
+      }
+    },
+    {
+      "timestamp": "2026-10-31T07:50:00Z",
+      "values": {
+        "T": "6.8",
+        "TPM": null,
+        "T05": "9.4",
+        "T10": "9.9",
+        "T20": "10.3",
+        "T50": "11.4",
+        "T100": "12.8"
+      }
+    }
+  ],
+  "dial": {
+    "T": {
+      "Code": "T",
+      "Name": "Teplota vzduchu",
+      "UnitHTML": "°C"
+    },
+    "TPM": {
+      "Code": "TPM",
+      "Name": "Přízemní teplota",
+      "UnitHTML": "°C"
+    },
+    "T05": {
+      "Code": "T05",
+      "Name": "Teplota půdy 5 cm",
+      "UnitHTML": "°C"
+    },
+    "T10": {
+      "Code": "T10",
+      "Name": "Teplota půdy 10 cm",
+      "UnitHTML": "°C"
+    },
+    "T20": {
+      "Code": "T20",
+      "Name": "Teplota půdy 20 cm",
+      "UnitHTML": "°C"
+    },
+    "T50": {
+      "Code": "T50",
+      "Name": "Teplota půdy 50 cm",
+      "UnitHTML": "°C"
+    },
+    "T100": {
+      "Code": "T100",
+      "Name": "Teplota půdy 100 cm",
+      "UnitHTML": "°C"
+    }
+  },
+  "_fixture": {
+    "source": "https://data-provider.chmi.cz/api/graphs/graf.meteo-stanice.teplota-10m/C2CBUD01",
+    "capturedAt": "2026-10-31T08:10:27.517596+00:00",
+    "note": "A small unmodified slice of the official response; timestamps are historical test data."
+  }
+}

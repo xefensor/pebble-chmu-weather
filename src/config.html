@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>ČHMÚ Weather</title>
+<style>
+:root{font:16px/1.5 system-ui,sans-serif;color-scheme:light dark;--blue:#245a96;--muted:#627083;--card:#f0f4f9;--ink:#182333}
+*{box-sizing:border-box}body{max-width:620px;margin:auto;padding:24px 18px;color:var(--ink)}h1{font-size:28px;margin:0}h2{font-size:19px;margin:0 0 8px}p{margin:10px 0}.tag{color:var(--blue);font-size:13px;font-weight:650;text-transform:uppercase;letter-spacing:.06em}.hint{color:var(--muted);font-size:14px}section{padding:18px;background:var(--card);border-radius:14px;margin:20px 0}label{display:block;font-weight:600;margin-top:16px}select,button{font:inherit;border-radius:8px;padding:10px 12px;min-height:46px}select{width:100%;margin-top:7px;border:1px solid #8494a9;background:Canvas;color:CanvasText}button{border:0;background:var(--blue);color:white;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.location{border-top:1px solid #aab6c7;padding-top:16px;margin-top:16px}.reading{font-size:26px;font-weight:650;margin-bottom:0}#status[role=alert]{color:#aa2835}.links{display:flex;gap:8px;flex-wrap:wrap}.links button{font-size:14px;background:transparent;color:var(--blue);padding-left:0;text-decoration:underline}.bottom{border-top:1px solid #aab6c7;padding-top:12px}
+@media(prefers-color-scheme:dark){:root{--blue:#9dc5ff;--muted:#aab7c9;--card:#1c2736;--ink:#eef4fb}button{background:#9dc5ff;color:#152237}}
+</style></head><body>
+<header><div class="tag">Unofficial Pebble plugin</div><h1>ČHMÚ Weather</h1><p>Measured temperature nearby. ALADIN forecasts for the hours ahead.</p></header>
+<section><h2>Use with Pebble</h2><p>In Pebble, open <strong>Settings → Weather → Weather provider</strong> and select <strong>ČHMÚ Weather</strong>. Your saved weather locations and units are used automatically.</p>
+<p class="hint">For apps that choose their own plugin, select ČHMÚ Weather in that app. Weather coverage follows nearby Czech forecast towns. Unsupported places can fall back to Pebble's own provider.</p></section>
+<section><h2>ČHMÚ app data</h2><label><input id="app-data" type="checkbox" disabled> Use ČHMÚ app data</label>
+<p>Enabled by default. Adds full-day ALADIN summaries for the first three days and the ČHMÚ app's noon UV forecast for clear skies. This UV value can be higher than the value expected under cloud cover.</p>
+<p class="hint">The ČHMÚ app service receives the nearby forecast town's coordinates and a random identifier created for this plugin installation. Turning this off excludes that service and its cached weather.</p></section>
+<section><h2>Rain and longer local forecasts</h2><label><input id="complete" type="checkbox" disabled> Use Open-Meteo to complete missing weather data</label>
+<p>Enabled by default. Adds rain probabilities and local forecast days beyond ALADIN's range, up to seven days. Supplies forecast peak UV when ČHMÚ app UV is unavailable. ČHMÚ remains the first choice for measured temperature and its available forecasts.</p>
+<p class="hint">Open-Meteo receives the coordinates of the nearby forecast town. Turn this off to use only ČHMÚ weather data and local calculations.</p></section>
+<p id="status" role="status">Connecting to the Pebble app…</p>
+<button id="refresh" disabled>Refresh ČHMÚ data</button>
+<div id="locations" aria-live="polite"></div>
+<section><h2>What the temperature means</h2><p>A station measurement less than one hour old is preferred. Its original measurement time is preserved.</p>
+<p>If no suitable fresh measurement is available, the current ALADIN forecast is used. Direct plugin readings mark this estimate with <strong>~</strong>.</p>
+<p class="hint">Only the temperature is measured. Conditions, wind, humidity and future hours are forecasts. Feels-like is a calculated estimate for shade using temperature, humidity and wind; sun times are calculated.</p>
+<p class="hint">When selected as Weather provider, these values also feed the watch's Weather app and timeline. Each refresh puts the same fresh station measurement into the current hourly slot and current temperature. Other hours stay forecasts. Pebble controls native Weather update timing and can discard estimate markers and UV source details.</p></section>
+<footer class="bottom"><p class="hint">Weather data: Český hydrometeorologický ústav (ČHMÚ) and, when enabled, Open-Meteo. This plugin is independent of these providers and Core Devices. No personal account, analytics or developer-operated server.</p>
+<div class="links"><button id="source">Source and help</button><button id="provider">ČHMÚ website</button></div></footer>
+<script>
+(function(){
+  var status=document.getElementById('status'), refresh=document.getElementById('refresh'), root=document.getElementById('locations');
+  var ready=false, complete=document.getElementById('complete'), appData=document.getElementById('app-data');
+  function node(tag,text,klass){var n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(klass)n.className=klass;return n;}
+  function fail(e){status.setAttribute('role','alert');status.textContent=e&&e.message||String(e||'Could not reach the plugin.');}
+  function call(message){return Pebble.sendMessage('plugin',message).then(function(state){if(state.error)throw new Error(state.error);return state;});}
+  function render(state){
+    root.replaceChildren();
+    var readings=Array.isArray(state.locations)?state.locations:[];
+    complete.checked=!state.settings||state.settings.completeWeather!==false;
+    appData.checked=!state.settings||state.settings.appData!==false;
+    status.setAttribute('role','status');
+    status.textContent=readings.length?'ČHMÚ Weather '+state.version:'No readings yet. Refresh to load your Pebble locations.';
+    readings.forEach(function(place){
+      var card=node('section');card.appendChild(node('h2',place.name));card.appendChild(node('p',place.temperature||'--','reading'));
+      card.appendChild(node('p',place.isForecast?(place.temperatureSource||'Forecast estimate'):('Measured at '+place.station),'hint'));
+      if(place.observedAt){card.appendChild(node('p','Observation: '+new Date(place.observedAt*1000).toLocaleString()+(place.distanceKm!==null?' · '+place.distanceKm+' km away':''),'hint'));}
+      if(place.feelsLike){card.appendChild(node('p','Feels like '+place.feelsLike+' · calculated shade estimate','hint'));}
+      if(typeof place.uvIndex==='number'){card.appendChild(node('p',"Today's UV: "+place.uvIndex+(place.uvSource?' · '+place.uvSource:''),'hint'));}
+      if(place.uvUpdatedAt){card.appendChild(node('p','UV source update: '+new Date(place.uvUpdatedAt*1000).toLocaleString(),'hint'));}
+      if(place.appForecastUpdatedAt){card.appendChild(node('p','Full-day ALADIN source update: '+new Date(place.appForecastUpdatedAt*1000).toLocaleString(),'hint'));}
+      if(place.appDataStatus){card.appendChild(node('p',place.appDataStatus,'hint'));}
+      if(typeof place.precipitation==='number'){card.appendChild(node('p',"Today's rain probability: "+place.precipitation+'%','hint'));}
+      if(place.forecastDays){card.appendChild(node('p',place.forecastDays+' forecast days available','hint'));}
+      if(place.supplementalSource){card.appendChild(node('p',place.supplementalSource,'hint'));}
+      var label=node('label','Temperature station');var select=node('select');select.setAttribute('aria-label','Temperature station for '+place.name);
+      var auto=node('option','Automatic nearby station');auto.value='';select.appendChild(auto);
+      (state.stations||[]).forEach(function(s){var option=node('option',s.name);option.value=s.id;select.appendChild(option);});
+      select.value=state.settings&&state.settings.stations&&state.settings.stations[place.id]||'';
+      select.onchange=function(){select.disabled=true;call({type:'setStation',locationId:place.id,stationId:select.value}).then(function(){status.textContent='Station saved. Refresh to check the new reading.';},fail).finally(function(){select.disabled=false;});};
+      label.appendChild(select);card.appendChild(label);card.appendChild(node('p','Automatic selection stays within 30 km and prefers a similar elevation. Manual choices must also be within 30 km.','hint'));root.appendChild(card);
+    });
+  }
+  refresh.onclick=function(){if(!ready)return;refresh.disabled=true;status.textContent='Reading ČHMÚ data…';call({type:'refresh'}).then(render,fail).finally(function(){refresh.disabled=false;});};
+  complete.onchange=function(){var enabled=complete.checked;complete.disabled=true;call({type:'setCompleteWeather',enabled:enabled}).then(function(state){render(state);status.textContent='Weather sources saved. Refresh to check the new reading.';},function(e){complete.checked=!enabled;fail(e);}).finally(function(){complete.disabled=false;});};
+  appData.onchange=function(){var enabled=appData.checked;appData.disabled=true;call({type:'setAppData',enabled:enabled}).then(function(state){render(state);status.textContent='ČHMÚ app data saved. Refresh to check the new reading.';},function(e){appData.checked=!enabled;fail(e);}).finally(function(){appData.disabled=false;});};
+  document.getElementById('source').onclick=function(){Pebble.openUrl('https://github.com/xefensor/pebble-chmu-weather');};
+  document.getElementById('provider').onclick=function(){Pebble.openUrl('https://www.chmi.cz/');};
+  Pebble.addEventListener('ready',function(e){if(e.target!=='plugin')return;ready=true;refresh.disabled=false;complete.disabled=false;appData.disabled=false;call({type:'getState'}).then(render,fail);});
+})();
+</script></body></html>

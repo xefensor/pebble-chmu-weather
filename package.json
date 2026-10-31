@@ -1,0 +1,211 @@
+{
+  "name": "pebble-chmu-weather",
+  "version": "0.3.0",
+  "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
+  "author": "Xef",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "scripts": {
+    "build:js": "esbuild src/plugin/index.js --bundle --format=iife --platform=neutral --main-fields=main,module --target=es2020 --outfile=build/plugin.js",
+    "build": "python3 scripts/build.py",
+    "test": "node --test test/*.test.js && python3 -m unittest discover -s tests",
+    "smoke": "python3 scripts/smoke.py"
+  },
+  "dependencies": {
+    "suncalc": "1.9.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "pebble": {
+    "projectType": "plugin",
+    "displayName": "ČHMÚ Weather",
+    "uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
+    "sdkVersion": "3",
+    "configPage": "config.html",
+    "usesPermissions": [
+      "Location",
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
+            "data-provider.chmi.cz",
+            "opendata.chmi.cz",
+            "api.open-meteo.com",
+            "chmu.rails.cz"
+          ]
+        }
+      }
+    ],
+    "plugin": {
+      "description": "Unofficial ČHMÚ weather: measured nearby temperature, ALADIN hourly and full-day forecasts, and clear-sky noon UV from the ČHMÚ app. Calculated feels-like and sun times. Optional Open-Meteo fills rain probabilities and local forecasts up to seven days. Czech coverage.",
+      "script": "plugin.js",
+      "sources": [
+        {
+          "category": "weather",
+          "items": [
+            "location"
+          ],
+          "supportsMultiple": true,
+          "callerPermissions": [
+            "Location"
+          ],
+          "suggestedRefreshIntervalSec": 1800,
+          "properties": {
+            "name": [
+              "shortText"
+            ],
+            "temperature": [
+              "shortText",
+              "longText",
+              "numericValue"
+            ],
+            "feels_like": [
+              "shortText",
+              "longText",
+              "numericValue"
+            ],
+            "high": [
+              "shortText",
+              "longText",
+              "numericValue"
+            ],
+            "low": [
+              "shortText",
+              "longText",
+              "numericValue"
+            ],
+            "condition": [
+              "shortText",
+              "longText",
+              "icon",
+              "image"
+            ],
+            "condition_code": [
+              "longText"
+            ],
+            "humidity": [
+              "numericValue",
+              "shortText"
+            ],
+            "uv_index": [
+              "numericValue",
+              "shortText"
+            ],
+            "precipitation": [
+              "numericValue",
+              "shortText"
+            ],
+            "wind_speed": [
+              "numericValue",
+              "shortText"
+            ],
+            "wind_direction": [
+              "numericValue"
+            ],
+            "utc_offset": [
+              "numericValue"
+            ],
+            "sunrise": [
+              "timestamp"
+            ],
+            "sunset": [
+              "timestamp"
+            ],
+            "hourly_temperature": [
+              "series.numericValue",
+              "series.shortText"
+            ],
+            "hourly_condition": [
+              "series.shortText",
+              "series.icon",
+              "series.image"
+            ],
+            "hourly_condition_code": [
+              "series.longText"
+            ],
+            "daily_high": [
+              "series.numericValue",
+              "series.shortText"
+            ],
+            "daily_low": [
+              "series.numericValue",
+              "series.shortText"
+            ],
+            "daily_condition": [
+              "series.shortText",
+              "series.longText",
+              "series.icon",
+              "series.image"
+            ],
+            "daily_condition_code": [
+              "series.longText"
+            ],
+            "daily_precipitation": [
+              "series.numericValue",
+              "series.shortText"
+            ],
+            "hourly_precipitation": [
+              "series.numericValue",
+              "series.shortText"
+            ],
+            "daily_source": [
+              "series.longText"
+            ],
+            "daily_sunrise": [
+              "series.timestamp"
+            ],
+            "daily_sunset": [
+              "series.timestamp"
+            ],
+            "source": [
+              "shortText",
+              "longText"
+            ],
+            "station": [
+              "shortText",
+              "longText"
+            ],
+            "observed_at": [
+              "timestamp"
+            ],
+            "forecast_updated_at": [
+              "timestamp"
+            ],
+            "supplemental_updated_at": [
+              "timestamp"
+            ],
+            "supplemental_source": [
+              "longText"
+            ],
+            "feels_like_source": [
+              "longText"
+            ],
+            "is_forecast": [
+              "boolean"
+            ],
+            "observation_age": [
+              "numericValue",
+              "shortText"
+            ],
+            "uv_source": [
+              "longText"
+            ],
+            "uv_updated_at": [
+              "timestamp"
+            ],
+            "app_forecast_updated_at": [
+              "timestamp"
+            ],
+            "app_data_fetched_at": [
+              "timestamp"
+            ],
+            "hourly_source": [
+              "series.longText"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

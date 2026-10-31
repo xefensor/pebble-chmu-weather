@@ -1,0 +1,134 @@
+{
+  "id": 13807,
+  "locality": "České Budějovice",
+  "lat": 48.977,
+  "lng": 14.478,
+  "updated_at": "2026-10-31T06:20:20+01:00",
+  "forecast_weather_cumulative": [
+    {
+      "category": "aladin_clstemperature",
+      "value": 8.88,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "aladin_clsvent_zonal",
+      "value": 2.69,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "aladin_clsvent_meridien",
+      "value": -1.19,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "aladin_surfprec_total",
+      "value": 0.31,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "aladin_surfnebul_totale",
+      "value": 1.0,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "min_temperature",
+      "value": 4.7,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "aladin_clstemperature",
+      "value": 8.24,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "aladin_clsvent_zonal",
+      "value": 1.83,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "aladin_clsvent_meridien",
+      "value": -1.58,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "aladin_surfprec_total",
+      "value": 1.11,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "aladin_surfnebul_totale",
+      "value": 1.0,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "min_temperature",
+      "value": 1.62,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "aladin_clstemperature",
+      "value": 5.75,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "aladin_clsvent_zonal",
+      "value": 2.06,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "aladin_clsvent_meridien",
+      "value": -1.54,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "aladin_surfprec_total",
+      "value": 0.52,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "aladin_surfnebul_totale",
+      "value": 1.0,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "min_temperature",
+      "value": 2.42,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "weather_icon_day",
+      "value": 17.0,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "weather_icon_night",
+      "value": 17.0,
+      "time_at": "2026-10-31"
+    },
+    {
+      "category": "weather_icon_day",
+      "value": 7.0,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "weather_icon_night",
+      "value": 7.0,
+      "time_at": "2026-11-01"
+    },
+    {
+      "category": "weather_icon_day",
+      "value": 17.0,
+      "time_at": "2026-11-02"
+    },
+    {
+      "category": "weather_icon_night",
+      "value": 17.0,
+      "time_at": "2026-11-02"
+    }
+  ],
+  "_fixture": {
+    "source": "https://chmu.rails.cz/api/v2/places/13807?with_detail%5B%5D=forecast_cumulative",
+    "capturedAt": "2026-10-31T10:07:28.303876+00:00",
+    "note": "Subset of the captured public Ceske Budejovice place response. Cumulative temperatures are Celsius; only local three-day daily aggregates are retained."
+  }
+}
