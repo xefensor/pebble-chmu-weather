@@ -4,4 +4,6 @@ __pycache__/
 *.pyc
 .venv/
 
-# Packaged beta artifacts are intentionally kept in dist/.
+# Packaged public artifacts are intentionally kept in dist/.
+# Personal binaries stay in ignored build/personal/, never public releases.
+dist/*-personal*

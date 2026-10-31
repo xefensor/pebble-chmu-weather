@@ -19,9 +19,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 LICENSE_FILES = ("LICENSE", "THIRD_PARTY.md", "licenses/SunCalc-MIT.txt")
+VARIANTS = ("public", "personal")
+APP_DOMAIN = "chmu.rails.cz"
 
 
-def appinfo_from_package(package):
+def appinfo_from_package(package, variant="public"):
+    if variant not in VARIANTS:
+        raise ValueError("variant must be public or personal")
     pebble = package.get("pebble")
     if not isinstance(pebble, dict):
         raise ValueError("package.json must contain a pebble object")
@@ -58,6 +62,22 @@ def appinfo_from_package(package):
     display = appinfo.get("displayName") or package.get("name")
     if not isinstance(display, str) or not display:
         raise ValueError("the plugin needs a display name")
+    # Public upgrades keep the original identity. Personal installs have their
+    # own provider/settings namespace and cannot replace a Store installation.
+    for permission in permissions:
+        if isinstance(permission, dict) and permission.get("name") == "Internet":
+            domains = permission.setdefault("parameters", {}).setdefault("domains", [])
+            permission["parameters"]["domains"] = [d for d in domains if d != APP_DOMAIN]
+            if variant == "personal":
+                permission["parameters"]["domains"].append(APP_DOMAIN)
+    if variant == "personal":
+        appinfo["uuid"] = str(uuid.uuid5(parsed_uuid, "personal-build"))
+        display += " Personal"
+        appinfo["displayName"] = display
+        appinfo["shortName"] = display
+        appinfo["longName"] = display
+        plugin["description"] = ("Personal build: ČHMÚ public weather plus optional app-service "
+                                 "full-day forecasts and clear-sky noon UV. Not for Store distribution.")
     appinfo["manifestVersion"] = 2
     appinfo.setdefault("shortName", display)
     appinfo.setdefault("longName", display)
@@ -71,31 +91,41 @@ def appinfo_from_package(package):
     return appinfo
 
 
-def artifact_stem(package):
+def artifact_stem(package, variant="public"):
+    if variant not in VARIANTS:
+        raise ValueError("variant must be public or personal")
     suffix = ""
     if "releaseCandidate" in package:
         candidate = package["releaseCandidate"]
         if not isinstance(candidate, int) or isinstance(candidate, bool) or candidate < 1:
             raise ValueError("releaseCandidate must be a positive integer")
         suffix = f"-rc.{candidate}"
-    return f"CHMU-Weather-{package['version']}{suffix}"
+    personal = "-personal" if variant == "personal" else ""
+    return f"CHMU-Weather-{package['version']}{suffix}{personal}"
 
 
-def build_project(project=ROOT, *, run_js=True, output=None):
+def build_project(project=ROOT, *, run_js=True, output=None, variant="public"):
     project = Path(project).resolve()
     if (project / "src/c").exists():
         raise ValueError("this packager only accepts phone-only plugins (no src/c)")
     package = json.loads((project / "package.json").read_text(encoding="utf-8"))
-    appinfo = appinfo_from_package(package)
-    stem = artifact_stem(package)
+    appinfo = appinfo_from_package(package, variant)
+    stem = artifact_stem(package, variant)
+    bundle_dir = project / "build" / "personal" if variant == "personal" else project / "build"
     if package.get("license") == "SEE LICENSE IN LICENSE" and not (project / "LICENSE").is_file():
         raise ValueError("package.json refers to LICENSE, but that file is missing")
     if run_js:
-        subprocess.run(["npm", "run", "build:js"], cwd=project, check=True)
+        subprocess.run(["npm", "run", "build:js", "--", "--variant", variant], cwd=project, check=True)
+    script = (bundle_dir / "plugin.js").read_bytes()
+    marker = f"// CHMU_BUILD_VARIANT={variant}\n".encode()
+    if not script.startswith(marker):
+        raise ValueError("bundle build variant does not match; rebuild JavaScript for the selected variant")
+    if variant == "public" and APP_DOMAIN.encode() in script:
+        raise ValueError("public bundle must not contain the app backend")
     entries = {
         "appinfo.json": (json.dumps(appinfo, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
-        "plugin.js": (project / "build/plugin.js").read_bytes(),
-        "config.html": (project / "src/config.html").read_bytes(),
+        "plugin.js": script,
+        "config.html": (project / "src/config.html").read_bytes().replace(b"__CHMU_BUILD_VARIANT__", variant.encode()),
     }
     for name in LICENSE_FILES:
         path = project / name
@@ -103,7 +133,7 @@ def build_project(project=ROOT, *, run_js=True, output=None):
             entries[name] = path.read_bytes()
     if any(not content.strip() for content in entries.values()):
         raise ValueError("the plugin script, config page and included license files must not be empty")
-    output = Path(output) if output else project / "dist" / f"{stem}.pbw"
+    output = Path(output) if output else (bundle_dir if variant == "personal" else project / "dist") / f"{stem}.pbw"
     output.parent.mkdir(parents=True, exist_ok=True)
     # Fixed metadata makes identical source builds reproducible.
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
@@ -124,9 +154,10 @@ def main():
     parser.add_argument("--project", type=Path, default=ROOT)
     parser.add_argument("--skip-js-build", action="store_true", help="package an existing build/plugin.js")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--variant", choices=VARIANTS, default="public")
     args = parser.parse_args()
     try:
-        output = build_project(args.project, run_js=not args.skip_js_build, output=args.output)
+        output = build_project(args.project, run_js=not args.skip_js_build, output=args.output, variant=args.variant)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Build failed: {error}\n")
     print(f"Packaged {output}")

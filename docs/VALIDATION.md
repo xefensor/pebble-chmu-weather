@@ -1,3 +1,34 @@
+# Validation
+
+## 1.0.1 — public and personal builds
+
+- Public builds keep the original plugin UUID and declare only public ČHMÚ
+  graph/open-data and Open-Meteo domains. The bundled app-service client and
+  authentication endpoint are excluded at compile time. Personal builds use
+  UUID `a1db6979-5ac3-5c50-841d-aecd9a619d36` and the distinct provider name
+  **ČHMÚ Weather Personal**, with the additional app-service domain.
+- **303 JavaScript tests and 17 packaging tests pass.** Six new build-policy
+  cases cover legacy settings, rejected enable messages, unavailable credential
+  storage, old app caches/diagnostics, and both Personal defaults/channels.
+  These six cases also pass against scripts extracted from both final PBWs;
+  nine existing timer-restricted regressions pass against the Personal PBW.
+- **Eight browser checks pass** across public/personal, English/Czech, narrow
+  light and dark settings pages. Public app controls are absent, UV choices are
+  Open-Meteo/Off, and Personal settings retain both channels.
+- **Public exact-PBW live smoke passed** on 31 October 2026: a fresh ČHMÚ station
+  measurement was returned; three HTTPS GETs (ALADIN, station, Open-Meteo) returned
+  HTTP 200 in approximately 3.9–5.1 seconds. No app-backend requests or request
+  safety failures occurred. Legacy enabled preferences were clamped, forged
+  reactivation was rejected, and disabling completion/UV excluded cached values.
+  This result supersedes the earlier timeout limitation for this specific run;
+  it does not establish service availability for every subsequent request.
+- Personal app-channel behavior was verified with fixtures and the exact PBW.
+  No new authenticated live run or physical-device test was performed for 1.0.1.
+  Third-party app-service permission remains unconfirmed; Personal artifacts are
+  excluded from the public Store package and tracked distribution directory.
+
+Earlier release results below are historical and apply to the builds named.
+
 # Release validation
 
 ## 1.0.0 — first stable release

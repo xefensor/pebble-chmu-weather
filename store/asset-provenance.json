@@ -1,11 +1,11 @@
 {
   "name": "ČHMÚ Weather",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "pbw": {
-    "file": "CHMU-Weather-1.0.0.pbw",
-    "sha256": "87548da3392e764c7b6cf42304fcafb5bf30a1932715f6469921fb931aee9e9d",
-    "scriptSha256": "e6c73829a1e5b0dd8f374d020abd4b9f16f5deeb27cb591f16442d079f51517d",
-    "configSha256": "715b98d20f0e6554ec4cd50800f0ae91d5738a009889c1000df6acdbba529ea3"
+    "file": "CHMU-Weather-1.0.1.pbw",
+    "sha256": "68aa845ab9531115f0c0a15e792ea80212dbca32c0a83969e36fb3a6ddd23711",
+    "scriptSha256": "4f61827f18402a3beee0f9f59f370c1a01021fdeb14dc858e37fdf86ea4644d6",
+    "configSha256": "c2baec92f39ef423e48c8f6f18af36b906b0c603009128a847d5b87d9ea159af"
   },
   "icons": {
     "provenance": "Original generic sun/cloud/rain vector, not an official provider logo. Rendered from icon-source.svg with Chromium 138.",
@@ -33,18 +33,18 @@
     "files": [
       {
         "file": "docs/images/settings-cs-dark.png",
-        "sha256": "81b54aa05f88a49c294e5438db28ccdd90cd11a1b8bfbc910d646cfad2ad6bd6",
+        "sha256": "26513a50c793052fc72199542251e2c0215ed344962d7a7029f5698261874c66",
         "pixels": [
           390,
-          1920
+          1820
         ]
       },
       {
         "file": "docs/images/settings-en-light.png",
-        "sha256": "9e7a25f62c21bd935d2ece6e428eb46532763f02ef1f2b0389274f7752698e79",
+        "sha256": "acc50b23dcea7f19a93b3576c343db9a8bb5f0d51d947154208876aaf920c4b9",
         "pixels": [
           390,
-          1887
+          1748
         ]
       }
     ]

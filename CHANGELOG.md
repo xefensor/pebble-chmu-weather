@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.1
+
+- Makes the default public build exclude the authenticated ČHMÚ app backend,
+  its permission, daily summaries and clear-sky noon UV settings.
+- Overrides inherited app-enabled settings and excludes old app caches and
+  diagnostics; public settings cannot re-enable those channels.
+- Keeps public station observations, ALADIN, and optional Open-Meteo completion.
+  Public UV choices are Open-Meteo forecast peak or Off.
+- Adds an explicitly built Personal provider with its own UUID and both app
+  channels enabled by default, outside public distribution artifacts.
+- Updates English/Czech settings, previews, privacy, attribution and Store copy.
+- Checks both final PBW policies and defaults; public exact-bundle live smoke
+  returns a fresh station observation with no app-backend requests.
+
 ## 1.0.0
 
 - Promotes the 0.6.0 release candidate to the first stable release.

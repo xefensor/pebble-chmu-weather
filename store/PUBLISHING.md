@@ -2,7 +2,9 @@
 
 ## Release status
 
-This directory prepares **ČHMÚ Weather 1.0.0** for publication and sideloading.
+This directory prepares the **public ČHMÚ Weather 1.0.1** build for publication
+and sideloading. Use this build for the Store. The separate Personal build is
+excluded from the public release and Store package.
 No appstore submission has been performed by preparing these files.
 
 If publishing is enabled for your developer account, upload the exact verified
@@ -22,8 +24,8 @@ physical phone/watch checks are recorded in [validation](../docs/VALIDATION.md).
 | Type | Phone-only Pebble plugin; no native watch binary |
 | Name | ČHMÚ Weather |
 | Developer | Xef |
-| Numeric version | 1.0.0 |
-| Release filename | `CHMU-Weather-1.0.0.pbw` |
+| Numeric version | 1.0.1 |
+| Release filename | `CHMU-Weather-1.0.1.pbw` |
 | UUID | `00866104-6ce5-4ae3-952f-9800f437442c` |
 | Source | `weather/location`, multiple locations |
 | Plugin category | Choose the weather category offered by the current plugin publishing tool |
@@ -35,13 +37,13 @@ physical phone/watch checks are recorded in [validation](../docs/VALIDATION.md).
 | Support | https://github.com/xefensor/pebble-chmu-weather/issues |
 | Code license | PolyForm Noncommercial 1.0.0, with Xef's required attribution |
 
-The manifest and release filename both use **1.0.0** without a candidate suffix.
+The manifest and release filename both use **1.0.1** without a candidate suffix.
 Each appstore version must be unused and numeric. Preserve the UUID for later
 releases. The package does not install a separate Android companion app, run a
 watchface, or require a user weather-service account.
 
-The release bundle is `CHMU-Weather-1.0.0-store-package.zip`. A separate
-`CHMU-Weather-1.0.0-source.zip` contains source and notices. The store bundle
+The release bundle is `CHMU-Weather-1.0.1-store-package.zip`. A separate
+`CHMU-Weather-1.0.1-source.zip` contains source and notices. The store bundle
 must include the exact verified PBW, not a later unchecked rebuild.
 
 ## Plugin artwork
@@ -67,23 +69,24 @@ or platform banner is needed for this phone-only plugin.
 
 ## Permission and source disclosure
 
-Keep the existing `Location` permission and the four Internet domains:
+Keep the existing `Location` permission and these three public-build Internet domains:
 
 | Domain | Purpose |
 | --- | --- |
 | `data-provider.chmi.cz` | Public ČHMÚ station and ALADIN graphs |
 | `opendata.chmi.cz` | Backup public station observations |
-| `chmu.rails.cz` | Optional app-service installation authentication, daily aggregates and clear-sky noon UV |
 | `api.open-meteo.com` | Optional missing fields, rain probabilities and later forecasts |
 
 Fixed saved locations do not request phone GPS. The current-location entry can
 request approximate location. Public town/station lookups are selected locally;
-optional app-service and Open-Meteo requests use the nearby forecast town's
-coordinates. The app-service channel creates its own random installation ID
-and credentials without a personal sign-in. Preserve the complete
+optional Open-Meteo requests use the nearby forecast town's coordinates.
+The public bundle excludes app-service authentication and access to
+`chmu.rails.cz`; its settings cannot enable the excluded daily-summary or UV
+channels, including through inherited preferences. Preserve the complete
 [privacy disclosure](../PRIVACY.md), [provider/library notices](../THIRD_PARTY.md)
-and `licenses/SunCalc-MIT.txt` in distributions. The public open-data attribution
-must not be represented as a separate license grant for authenticated app data.
+and `licenses/SunCalc-MIT.txt` in distributions. Public website/open-data
+products use ČHMÚ's CC BY 4.0 attribution. Third-party access to the separately
+authenticated app backend remains unconfirmed and is not claimed by this release.
 Do not imply that ČHMÚ, Open-Meteo or Core Devices endorse this project.
 
 ## Checks before uploading
@@ -99,18 +102,34 @@ Do not imply that ČHMÚ, Open-Meteo or Core Devices endorse this project.
 - Verify nearby automatic/manual stations, saved/GPS locations, fresh versus
   forecast fallback, zero and negative values, optional-service failures and
   rejected permissions without exposing credentials.
-- Check UV off/ČHMÚ/Open-Meteo and both optional forecast controls independently.
-  Clear-sky noon UV and forecast peak UV must never be labelled live readings.
+- Check public UV Off/Open-Meteo and Open-Meteo completion independently.
+  Forecast peak UV must never be labelled a live reading. Confirm that old
+  app-enabled settings, cached app values and forged configuration messages
+  cannot enable app-service requests or present old app-service diagnostics.
 - Confirm English/Czech settings, narrow/wide screens, light/dark modes, error
   states, keyboard access and successful/failed changes on the phone.
 - Install the exact PBW in a supported preview-enabled Pebble mobile app.
   Compare direct source values with source timestamps, then check native Weather,
   timeline and a plugin-aware watchface. Pebble controls import scheduling and
   may omit custom provenance markers; verify over time, not only after launch.
-- Test the actual app-service path, secure storage and network/location permission
-  prompts. Deterministic browser/VM checks do not replace those device checks.
+- Test public network/location permission prompts. Confirm no app-service domain
+  is requested and no app installation credentials are obtained. Deterministic
+  browser/VM checks do not replace device checks.
 - Keep settings previews illustrative and free of real installation identifiers,
   credentials, precise private coordinates or real account details.
+
+## Personal build separation
+
+`npm run build:personal` produces
+`build/personal/CHMU-Weather-1.0.1-personal.pbw`, labelled
+**ČHMÚ Weather Personal** with its own UUID. It retains the independently
+controlled ČHMÚ app daily-summary and clear-sky noon UV channels, enabled by
+default. Select that provider/source explicitly after installing it. No
+installation identifier or credentials are embedded in the PBW.
+
+Keep this PBW out of `dist`, public release uploads and the Store bundle.
+Its source and build instructions are available in the source archive, but
+its authenticated-service access is not presented as cleared for publication.
 
 ## Publication workflow
 

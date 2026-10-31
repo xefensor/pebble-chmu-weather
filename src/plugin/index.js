@@ -2,7 +2,7 @@
 var createClient = require('../lib/client');
 var client = createClient({
   catalog: require('../catalog.json'), storage: localStorage,
-  secureStorage: Pebble.secureStorage,
+  secureStorage: typeof __CHMU_PUBLIC_BUILD__ !== 'undefined' && __CHMU_PUBLIC_BUILD__ ? undefined : Pebble.secureStorage,
   fetch: function(url, init) { return fetch(url, init); }, geolocation: navigator.geolocation,
   readSource: function(request) { return Pebble.readSource(request); },
   subscribeSource: function(request) { return Pebble.subscribeSource(request); },

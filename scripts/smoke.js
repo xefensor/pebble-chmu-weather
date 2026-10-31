@@ -3,6 +3,8 @@
 // anonymous installation authentication, passes through the urllib bridge.
 // Credentials stay in child-process pipes and separate in-memory secure storage.
 const assert = require('node:assert/strict');
+assert.equal(process.env.CHMU_SMOKE_VARIANT,'personal',
+  'Authenticated smoke is personal-only: use python3 scripts/smoke.py --variant personal');
 const {spawn} = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -14,7 +16,7 @@ const createClient = require('../src/lib/client');
 const {parseObservation} = require('../src/lib/station-observation');
 const {parseUV} = require('../src/lib/app-uv');
 const {parseWeather} = require('../src/lib/app-weather');
-const manifest = require('../package.json').pebble;
+const manifest = JSON.parse(process.env.CHMU_SMOKE_MANIFEST);
 const verifyHistory = require('./smoke-history');
 const ROOT = path.resolve(__dirname, '..');
 const REQUEST = {category:'weather', item:'location'};
@@ -401,7 +403,7 @@ function publicReading(label,p) {
     retainedForecastHours:p.forecast_history_hours?.numericValue.value}));
 }
 async function main() {
-  const bundle = fs.readFileSync(path.join(ROOT,'build/plugin.js'));
+  const bundle = fs.readFileSync(process.env.CHMU_SMOKE_SCRIPT_PATH);
   bundleDigest = crypto.createHash('sha256').update(bundle).digest('hex');
   assert.equal(bundleDigest,process.env.CHMU_SMOKE_BUNDLE_SHA256,
     'Executed bundle must be byte-identical to plugin.js in the built PBW');

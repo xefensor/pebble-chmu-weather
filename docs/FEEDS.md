@@ -1,15 +1,28 @@
 # Weather feeds and bundled location catalogue
 
-Version 0.5.0 beta prefers fresh ČHMÚ station temperature, humidity and wind
-when they are reported together, then public ALADIN forecast fields. The
-**Use ČHMÚ full-day forecasts** setting adds fresh three-day local aggregates.
-The separate **Preferred UV source** selector chooses ČHMÚ clear-sky noon (default),
-Open-Meteo cloud-aware daily peak, or Off. Open-Meteo completion independently
-supplies missing fields, rain probabilities and up to seven local forecast days.
+The public 1.0.1 build prefers fresh ČHMÚ station temperature, humidity and wind
+when they are reported together, then public ALADIN forecast fields.
+Open-Meteo completion supplies missing fields, rain probabilities and up to
+seven local forecast days. Its UV selector offers Open-Meteo cloud-aware daily
+peak (default) or Off; completion must be enabled for Open-Meteo UV.
+
+The public manifest omits `chmu.rails.cz`, its bundle excludes installation
+authentication, and its client rejects attempts to enable app-service channels.
+Old saved app settings, cached app values and old app diagnostics cannot
+re-enable them. An inherited ČHMÚ UV preference becomes Open-Meteo when
+completion is enabled, or Off otherwise.
+
+The separate personal build keeps **Use ČHMÚ full-day forecasts** and ČHMÚ
+clear-sky noon UV enabled by default. Its independent controls and app feed
+schemas are documented below as personal-build features only. It has its own
+UUID and is excluded from public release artifacts.
 
 Endpoint/schema checks were performed on 31 October 2026. ČHMÚ's website
-graphs are publicly readable; its app service uses installation authentication.
-No supported public API contract was established for these backends. Keep
+graphs are publicly readable. Current [website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti)
+license published website products under CC BY 4.0, and its public open-data
+datasets are separately licensed CC BY 4.0. The personal build's app service
+uses installation authentication; third-party access permission for it remains
+unconfirmed. No supported public API contract was established for these backends. Keep
 parsing defensive and retain the published open-data export as an independent
 measurement backup.
 
@@ -185,8 +198,8 @@ to add or use that context. It cannot revive an expired current forecast or be
 labelled as observed weather. A `no-store` ALADIN response clears this point's
 retained context and does not contribute new history.
 
-Cold starts cannot reconstruct missing morning hours. Full ČHMÚ app daily
-aggregates remain preferred. Otherwise a complete ALADIN day, possibly including
+Cold starts cannot reconstruct missing morning hours. In the personal build,
+enabled full ČHMÚ app daily aggregates remain preferred. Otherwise a complete ALADIN day, possibly including
 retained past hours, can supply a full range. If today remains incomplete and
 Open-Meteo completion is enabled, its full-day range takes priority over partial
 ALADIN extrema. With completion off, available partial extrema can be exposed
@@ -246,9 +259,15 @@ A bounded search did not establish a suitable full local ČHMÚ point feed for
 rain probability or days four through seven. This is not a claim that such
 data can never exist. Open-Meteo fills those local fields when enabled.
 
-## ČHMÚ app data
+## ČHMÚ app data — personal build only
 
-**Use ČHMÚ full-day forecasts** is enabled by default and controls only the
+This entire section describes the personal build. The public release does not
+request these routes, obtain installation credentials, expose their settings,
+or use their cached values. The source implements this protocol independently;
+it is not a documented public API contract, and ČHMÚ has not confirmed
+third-party access permission.
+
+In the personal build, **Use ČHMÚ full-day forecasts** is enabled by default and controls only the
 three-day local date aggregates. They avoid deriving today's high/low only
 from the hours remaining in the public graph. The separate **Preferred UV source** choice
 controls the ČHMÚ app's clear-sky noon estimate. Either app-service channel can
@@ -383,7 +402,8 @@ transition. Download time records cache age, not a model issue time.
 
 Fresh same-time ČHMÚ station temperature/humidity/wind and valid public
 ALADIN hourly forecast fields take priority.
-Fresh app local daily aggregates are preferred for the dates they provide.
+In the personal build only, enabled fresh app local daily aggregates are
+preferred for the dates they provide.
 Complete ALADIN days remain preferred after that, including retained already-past
 context for today. If today's ALADIN coverage is still incomplete, Open-Meteo's
 full-day range is used while completion is enabled. Without completion, an
@@ -394,7 +414,8 @@ The plugin still exposes 48 hourly slots anchored at local midnight for today
 and tomorrow, not a promise of 48 future hours from the current moment.
 
 `uv_index_max` is today's **forecast maximum UV**, used for `uv_index` when
-Open-Meteo is selected or as the enabled fallback for unavailable ČHMÚ UV.
+Open-Meteo is selected (the public default), or in the personal build as the
+enabled fallback for unavailable ČHMÚ UV.
 UV Off suppresses it. It is not an instantaneous UV reading. `precipitation_probability` supplies actual
 hourly probabilities, and `precipitation_probability_max` supplies the daily
 values. The scalar `precipitation` property is today's daily probability.
@@ -502,6 +523,9 @@ live weather and should be tested against a fixed clock.
 
 Public ČHMÚ graph/open-data and catalogue attribution:
 **Český hydrometeorologický ústav (ČHMÚ), CC BY 4.0**.
-ČHMÚ's [open-data information](https://www.chmi.cz/-/kde-najdu-otev%C5%99en%C3%A1-data-%C4%8Dhm%C3%BA-)
+ČHMÚ's [website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti)
+license its published website products under CC BY 4.0. Its
+[open-data information](https://www.chmi.cz/o-chmu/produkty-a-sluzby/data-a-vyhodnoceni)
 states that its open data may be used free of charge under this license.
 Retain this attribution when redistributing the catalogue or displaying data.
+The separately authenticated app service is excluded from this licence claim.

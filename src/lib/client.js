@@ -1,14 +1,17 @@
 'use strict';
 var model = require('./weather');
 var supplementModel = require('./supplement');
-var createAppClient = require('./app-client').createClient;
+// The public bundle omits the authenticated app client entirely. A saved
+// preference or a config message must never opt it back into that service.
+var PUBLIC_BUILD = typeof __CHMU_PUBLIC_BUILD__ !== 'undefined' && __CHMU_PUBLIC_BUILD__;
+var createAppClient = typeof __CHMU_PUBLIC_BUILD__ !== 'undefined' && __CHMU_PUBLIC_BUILD__ ? null : require('./app-client').createClient;
 var parseAppUV = require('./app-uv').parseUV;
 var parseAppWeather = require('./app-weather').parseWeather;
 var parseStationObservation = require('./station-observation').parseObservation;
 var httpCache = require('./http-cache');
 var createHistory = require('./forecast-history').createHistory;
 var buildInstance = require('./envelope').buildInstance;
-var VERSION = require('../../package.json').version;
+var VERSION = typeof __CHMU_VERSION__ !== 'undefined' ? __CHMU_VERSION__ : require('../../package.json').version;
 var REFRESH = 30 * 60000;
 var MAX_FORECAST_AGE = 6 * 3600000;
 // The phone host gives a native source handler 20 seconds. Stop starting work
@@ -27,11 +30,11 @@ module.exports = function(options) {
   var catalog = options.catalog;
   var inFlight = {};
   var forecastHistory = createHistory({storage:storage, now:options.now});
-  var appClient = createAppClient(Object.assign({}, options, {
+  var appClient = createAppClient ? createAppClient(Object.assign({}, options, {
     isEnabled:function() { var selected = settings(); return selected.appData || selected.uvSource === 'chmu'; },
     validateUV:function(body, now, point) { return !!parseAppUV(body, now, point); },
     validatePlace:function(body, now, point) { return !!parseAppWeather(body, now, point); }
-  }));
+  })) : null;
   function load(key, fallback) {
     try { return JSON.parse(storage.getItem(key)) || fallback; } catch (ignored) { return fallback; }
   }
@@ -49,9 +52,12 @@ module.exports = function(options) {
     // An upgrade must not re-enable a service the user disabled in 0.3.
     // Its single app-data switch also controlled UV before UV had its own choice.
     var inheritedUV = value.appData === false ? value.completeWeather === false ? 'off' : 'open-meteo' : 'chmu';
+    var completeWeather = value.completeWeather !== false;
+    var uvSource = ['chmu','open-meteo','off'].indexOf(value.uvSource) >= 0 ? value.uvSource : inheritedUV;
+    if (PUBLIC_BUILD && uvSource === 'chmu') { uvSource = completeWeather ? 'open-meteo' : 'off'; }
     return {stations: value.stations && typeof value.stations === 'object' && !Array.isArray(value.stations) ? value.stations : {},
-      completeWeather:value.completeWeather !== false, appData:value.appData !== false,
-      uvSource:['chmu','open-meteo','off'].indexOf(value.uvSource) >= 0 ? value.uvSource : inheritedUV,
+      completeWeather:completeWeather, appData:!PUBLIC_BUILD && value.appData !== false,
+      uvSource:uvSource,
       revision:Number.isSafeInteger(value.revision) && value.revision >= 0 ? value.revision : 0};
   }
   function deadline(start, timeout, budget) {
@@ -300,7 +306,8 @@ module.exports = function(options) {
   function writeDiagnostic(place, generation, diagnostic) {
     if (generation !== settings().revision) { return; }
     var diagnostics = load(STATUS, {});
-    diagnostics[place.id] = Object.assign({id:place.id, name:place.name, settingsRevision:generation}, diagnostic);
+    diagnostics[place.id] = Object.assign({id:place.id, name:place.name, settingsRevision:generation}, diagnostic,
+      {buildVariant:PUBLIC_BUILD ? 'public' : 'personal'});
     save(STATUS, diagnostics);
   }
   async function location(place, request, userUnits, force, budget, completeWeather, appData, uvSource, generation) {
@@ -320,7 +327,7 @@ module.exports = function(options) {
     // optional channel must still leave time for the station/public feeds.
     var appBudget = {endsAt:Math.min(budget.endsAt, options.now() + 14000)};
     function appResource(method, parser, enabled) {
-      if (!enabled) { return Promise.resolve({value:null, fetchedAt:0}); }
+      if (!appClient || !enabled) { return Promise.resolve({value:null, fetchedAt:0}); }
       return appClient[method](point.point, force, appBudget).then(function(result) {
         return Object.assign({}, result, {value:parser(result.value, options.now(), point.point)});
       }).catch(function() { return {value:null, fetchedAt:0}; });
@@ -567,9 +574,11 @@ module.exports = function(options) {
   function state() {
     var selected = settings();
     var locations = Object.values(load(STATUS, {})).filter(function(value) {
-      return value && (value.settingsRevision || 0) === selected.revision;
+      return value && (value.settingsRevision || 0) === selected.revision &&
+        (!PUBLIC_BUILD || value.buildVariant === 'public');
     });
-    return {version:VERSION, settings:selected, locations:locations};
+    return {version:VERSION, buildVariant:PUBLIC_BUILD ? 'public' : 'personal',
+      capabilities:{appService:!PUBLIC_BUILD}, settings:selected, locations:locations};
   }
   function setStation(locationId, stationId) {
     if (typeof locationId !== 'string' || !locationId || locationId.length > 128 ||
@@ -614,6 +623,7 @@ module.exports = function(options) {
   }
   function setAppData(enabled) {
     if (typeof enabled !== 'boolean') { throw {code:'INVALID_ARGS', message:'Choose whether ČHMÚ app data is enabled'}; }
+    if (PUBLIC_BUILD && enabled) { throw {code:'INVALID_ARGS', message:'ČHMÚ app-service features are unavailable in the public build.'}; }
     var s = settings();
     var changed = s.appData !== enabled;
     if (changed) { s.revision++; }
@@ -624,6 +634,7 @@ module.exports = function(options) {
   }
   function setUVSource(source) {
     if (['chmu','open-meteo','off'].indexOf(source) < 0) { throw {code:'INVALID_ARGS', message:'Choose a supported UV source'}; }
+    if (PUBLIC_BUILD && source === 'chmu') { throw {code:'INVALID_ARGS', message:'ČHMÚ app-service features are unavailable in the public build.'}; }
     var s = settings();
     var changed = s.uvSource !== source;
     if (changed) { s.revision++; }

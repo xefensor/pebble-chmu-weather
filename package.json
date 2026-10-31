@@ -1,15 +1,17 @@
 {
   "name": "pebble-chmu-weather",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
   "author": "Xef",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "scripts": {
-    "build:js": "esbuild src/plugin/index.js --bundle --format=iife --platform=neutral --main-fields=main,module --target=es2020 --outfile=build/plugin.js",
+    "build:js": "node scripts/build-js.js",
     "build": "python3 scripts/build.py",
     "test": "node --test test/*.test.js && python3 -m unittest discover -s tests",
-    "smoke": "python3 scripts/smoke.py"
+    "smoke": "python3 scripts/smoke.py",
+    "build:personal": "python3 scripts/build.py --variant personal",
+    "smoke:personal": "python3 scripts/smoke.py --variant personal"
   },
   "dependencies": {
     "suncalc": "1.9.0"
@@ -31,14 +33,13 @@
           "domains": [
             "data-provider.chmi.cz",
             "opendata.chmi.cz",
-            "api.open-meteo.com",
-            "chmu.rails.cz"
+            "api.open-meteo.com"
           ]
         }
       }
     ],
     "plugin": {
-      "description": "Unofficial ČHMÚ weather: nearby station temperature, humidity and wind; ALADIN hourly and full-day forecasts. Choose clear-sky ČHMÚ UV or Open-Meteo forecast UV. Optional Open-Meteo fills rain probabilities and up to seven local forecast days. Czech coverage.",
+      "description": "Unofficial ČHMÚ weather: nearby station temperature, humidity and wind; public ALADIN forecasts. Optional Open-Meteo adds rain probabilities, forecast UV and up to seven local forecast days. Czech coverage.",
       "script": "plugin.js",
       "sources": [
         {

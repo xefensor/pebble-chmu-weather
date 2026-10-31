@@ -2,24 +2,24 @@
 
 Unofficial weather plugin by Xef. Nearby ČHMÚ station measurements supply the
 current temperature, humidity and wind when the station reports them together.
-ALADIN supplies local forecasts. ČHMÚ app data adds full-day local ranges and
-clear-sky noon UV, with separate controls for each. When enabled, Open-Meteo completes
+Public ALADIN supplies local forecasts. When enabled, Open-Meteo completes
 missing weather fields, rain probabilities and forecasts up to seven days.
+The public build excludes ČHMÚ's authenticated mobile-app service.
 
 The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install 1.0.0
+## Install the public 1.0.1 build
 
 [Settings preview: English/light](docs/images/settings-en-light.png) · [Czech/dark](docs/images/settings-cs-dark.png)
 
 1. Use a Pebble mobile app supporting the plugin APIs. In 1.16.x, enable
    **Settings → Plugins → Plugins / permissions preview** if required. Labels
    may change between app versions.
-2. Open [CHMU-Weather-1.0.0.pbw](dist/CHMU-Weather-1.0.0.pbw) with the Pebble app.
+2. Open [CHMU-Weather-1.0.1.pbw](dist/CHMU-Weather-1.0.1.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
-   `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com` through Pebble's
+   `opendata.chmi.cz` and `api.open-meteo.com` through Pebble's
    normal permission flow.
 4. Select **Settings → Weather → Weather provider → ČHMÚ Weather**. This feeds
    the watch's Weather app and timeline, and watchfaces using Pebble weather.
@@ -30,23 +30,22 @@ developer-operated server is needed.
    **Source details**.
 
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
-Version **1.0.0** is the prepared stable release. If publishing is enabled for
+Version **1.0.1** is the prepared public release. If publishing is enabled for
 your developer account, use the exact PBW and assets in the store package.
 Preparing these files does not submit a Store listing. The earlier 0.5.1 runtime
 fix was reported working; current live-service and physical-device validation
 limits are recorded separately in [validation](docs/VALIDATION.md).
-[Source archive](dist/CHMU-Weather-1.0.0-source.zip) and
-[prepared store package](dist/CHMU-Weather-1.0.0-store-package.zip) are included.
+[Source archive](dist/CHMU-Weather-1.0.1-source.zip) and
+[prepared store package](dist/CHMU-Weather-1.0.1-store-package.zip) are included.
 Read the [publishing checklist](store/PUBLISHING.md) before uploading.
 
 ## Settings
 
 The settings page follows English/Czech phone language and light/dark appearance.
 **Latest loaded readings** puts current values and station selection first.
-**Forecast sources** keeps daily forecasts, UV and Open-Meteo independent;
+**Forecast sources** controls Open-Meteo completion and forecast UV;
 **Source details** expands timestamps and provenance. **Setup and help** explains
-Weather provider selection and coverage. Weather calculations, defaults, source permissions and cache freshness
-rules are retained. UI text and diagnostics do not redefine a forecast as a
+Weather provider selection and coverage. UI text and diagnostics do not redefine a forecast as a
 measurement.
 
 
@@ -58,45 +57,36 @@ measurement.
 | Humidity and wind | Measurements from the temperature station at the same timestamp when available; each missing field falls back to public ALADIN, then enabled Open-Meteo |
 | Conditions | Public ALADIN forecast, with enabled Open-Meteo filling missing values |
 | Hourly series | 48 slots for today and tomorrow; the active slot uses a fresh station measurement, forecasts supply other slots, and retained ALADIN context can fill missing past hours |
-| Daily forecast | Fresh ČHMÚ full-day aggregates first, then complete ALADIN ranges; enabled Open-Meteo supplies full days when ALADIN is incomplete, up to seven days |
-| UV | Separate choice of ČHMÚ clear-sky noon UV, Open-Meteo cloud-aware forecast peak, or Off |
+| Daily forecast | Complete public ALADIN ranges; enabled Open-Meteo supplies full days when ALADIN is incomplete, up to seven days |
+| UV | Open-Meteo cloud-aware forecast daily peak, or Off |
 | Precipitation probability | Open-Meteo hourly and daily probabilities; never inferred from rainfall amounts |
 | Feels-like temperature | Calculated shade estimate using the displayed temperature, relative humidity and sustained 10 m wind, when all inputs are usable |
 | Sunrise and sunset | Calculated locally with SunCalc |
 
-Two forecast settings are on by default:
+**Complete with Open-Meteo** is on by default. It adds rain probabilities,
+missing fields and later local forecast days. Turning it off prevents all
+Open-Meteo requests and use of cached Open-Meteo values.
 
-- **ČHMÚ full-day forecasts** adds the app service's three-day local
-  aggregates. This checkbox controls daily ranges and conditions only.
-- **Complete with Open-Meteo** adds rain probabilities,
-  missing fields and later local forecast days. Turning it off prevents all
-  Open-Meteo requests and use of cached Open-Meteo values.
-
-The separate **UV source** setting has three choices:
+The separate **UV source** setting has two public-build choices:
 
 | Choice | Behavior |
 | --- | --- |
-| ČHMÚ — default | Clear-sky noon UV from the official app service; Open-Meteo forecast peak is a fallback only when completion is enabled |
-| Open-Meteo | Cloud-aware forecast daily peak; requires Open-Meteo completion to be enabled |
+| Open-Meteo — default | Cloud-aware forecast daily peak; requires Open-Meteo completion to be enabled |
 | Off | Omits UV from plugin output |
 
-ČHMÚ UV assumes clear skies at noon and can be higher than the value expected
-under cloud cover. Neither UV option is an instantaneous measurement. Settings
-show the actual source, ČHMÚ's original update time or Open-Meteo's download
-time. Selecting
+UV is a forecast, not an instantaneous measurement. Settings show its source
+and download time. Selecting
 Open-Meteo while completion is off shows an instruction to enable completion;
 it does not enable that service automatically.
 
-ČHMÚ UV works with **ČHMÚ full-day forecasts** off. To stop requests to the
-ČHMÚ app service, turn off full-day forecasts and choose Open-Meteo or Off for
-UV. The plugin creates its own random installation ID and service credentials
-when that service is needed; you do not sign in. With both forecast settings
-off and UV Off, public ČHMÚ observations, ALADIN and local calculations still
-work. Rain probabilities and later forecast days can be absent.
-
-When upgrading from 0.3.0, an existing disabled ČHMÚ app-data setting stays
-respected: UV starts on Open-Meteo if completion was enabled, or Off if both
-sources were disabled. New installations default to ČHMÚ UV.
+The public build cannot enable ČHMÚ app daily summaries or ČHMÚ app UV, even
+through old saved settings or configuration messages. Its manifest does not
+request `chmu.rails.cz` access, and its script excludes installation
+authentication. Old app-service cached values and diagnostics are excluded.
+An old ČHMÚ UV preference becomes Open-Meteo when completion is enabled, or
+Off when completion is disabled. Explicit Open-Meteo/Off choices remain.
+With completion off and UV Off, public ČHMÚ observations, ALADIN and local
+calculations still work. Rain probabilities and later forecast days can be absent.
 
 Changing a source setting excludes its disabled cached values. A request
 already sent can finish; obsolete updates do not replace the current readings.
@@ -114,9 +104,7 @@ chosen Celsius or Fahrenheit unit. The actual observation timestamp controls
 freshness: downloading the same measurement never makes it younger.
 
 Current and future forecasts can be reused offline for up to **six hours**
-from the original body download. ČHMÚ app daily aggregates also require a source
-update age of at most six hours; UV records require today's date and an original
-update no more than seven days old. Rechecking an unchanged response does not
+from the original body download. Rechecking an unchanged response does not
 reset these ages.
 
 The plugin retains ALADIN temperature and condition forecasts for already-past
@@ -125,7 +113,7 @@ previously downloaded hours can preserve context for today's range. They remain
 forecasts and cannot supply current or future weather. A cold start midway
 through the day cannot reconstruct hours the plugin never received.
 
-ČHMÚ full-day aggregates still take priority. If today's ALADIN coverage remains
+If today's ALADIN coverage remains
 incomplete and completion is enabled, the plugin uses Open-Meteo's full-day
 range. With completion off, an available partial ALADIN range is labelled as
 partial in settings and source metadata; Pebble's native bridge may omit that
@@ -153,8 +141,8 @@ timeout, capped at seven seconds or the remaining request budget.
 When a weather service supplies an ETag or Last-Modified validator, the next
 check can use a conditional GET. An HTTP 304 reuses the validated body while
 preserving its original download, source and measurement times. It reduces
-response payloads where supported; the inspected ČHMÚ app endpoints support
-this, while the public graphs and Open-Meteo did not provide validators.
+response payloads where supported; the inspected public graphs and Open-Meteo
+did not provide validators.
 Refresh timing and the six-hour forecast limit stay the same. Responses marked
 `no-store` are not saved as weather bodies or retained forecast context.
 
@@ -214,6 +202,30 @@ phone-only PBW. The pinned esbuild release bundles JavaScript. Packaging is
 deterministic and includes permission metadata and license notices.
 The smoke command makes real weather requests. See [validation status](docs/VALIDATION.md).
 
+### Personal build
+
+```sh
+npm run build:personal
+```
+
+This creates `build/personal/CHMU-Weather-1.0.1-personal.pbw`, labelled
+**ČHMÚ Weather Personal** with a separate plugin UUID. It can coexist with
+the public build. After installing it, select **ČHMÚ Weather Personal** as
+the weather provider or complication source to use it.
+
+The personal build keeps ČHMÚ app local daily summaries and clear-sky noon
+UV enabled by default, with their independent settings. It creates its own
+random installation identifier and service credentials when needed. No
+credentials are embedded in the PBW. ČHMÚ UV is a clear-sky noon forecast,
+not a live or cloud-adjusted reading. App daily data must pass the six-hour
+source/download age checks; UV must match today and have an original update
+no more than seven days old.
+
+This build is excluded from public release artifacts and the Store package.
+Its build recipe remains in the source. Third-party access to the authenticated
+app service has not been confirmed by ČHMÚ; the website/open-data CC BY licence
+is not treated as permission for that separate service.
+
 To regenerate the static catalogue, install development-only `pyproj` and run
 `python3 scripts/update-catalog.py`. See [feed details](docs/FEEDS.md).
 
@@ -221,8 +233,10 @@ To regenerate the static catalogue, install development-only `pyproj` and run
 
 Weather data: **Český hydrometeorologický ústav (ČHMÚ)** and, when enabled,
 **Open-Meteo**. Public ČHMÚ graph/open-data sources, the derived catalogue and
-Open-Meteo forecasts use CC BY 4.0 attribution. The optional app data is
-attributed separately to ČHMÚ. Feels-like is a plugin-calculated estimate.
+Open-Meteo forecasts use CC BY 4.0 attribution. ČHMÚ's current
+[website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti)
+license its published website products under CC BY 4.0. Personal-build app
+data is attributed separately to ČHMÚ. Feels-like is a plugin-calculated estimate.
 This project is independent of ČHMÚ, Open-Meteo and Core Devices.
 See [privacy information](PRIVACY.md) and [third-party notices](THIRD_PARTY.md).
 

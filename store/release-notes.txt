@@ -1,15 +1,14 @@
-ČHMÚ Weather 1.0.0
+ČHMÚ Weather 1.0.1
 
-First stable release of the unofficial ČHMÚ weather provider for Pebble.
+Public release of the unofficial ČHMÚ weather provider for Pebble.
 
-- Nearby ČHMÚ station temperature, humidity and wind with original measurement times
-- ALADIN hourly forecasts and local daily ranges
-- Independent ČHMÚ full-day forecast and clear-sky noon UV options
-- Optional Open-Meteo completion for rain probabilities, missing fields and up to seven forecast days
-- Pebble Weather, timeline and plugin-aware watchface integration
-- English/Czech settings with light/dark appearance, station selection and expandable source details
-- Reliable settings save errors and rollback to confirmed values
-- Explicit forecast fallback labels, source timestamps and cache-age limits
+- Excludes the authenticated ČHMÚ mobile-app service from the public build, including its domain permission and installation authentication
+- Keeps public ČHMÚ station observations, ALADIN forecasts and optional Open-Meteo completion
+- Uses Open-Meteo forecast UV by default, with an Off choice
+- Prevents old saved settings or cached app data from re-enabling the excluded channels
+- Updates English/Czech settings, source explanations and privacy information for the public build
+
+ČHMÚ app daily summaries and clear-sky noon UV remain in a separately labelled personal build with a separate plugin UUID. It is not part of this public release or Store package.
 
 Requires a Pebble mobile app supporting plugins. Coverage follows nearby Czech stations and forecast towns. Weather service availability and Pebble's import schedule control when new readings appear. No personal weather-service account, analytics or developer-operated server.
 

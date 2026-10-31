@@ -6,9 +6,16 @@
 Public station observations, ALADIN graph data and the derived location
 catalogue are used under
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
-The optional app-service UV and local daily aggregates are also attributed to
-ČHMÚ; the public open-data notice is not treated as a separate license grant
-for that service.
+ČHMÚ's current [website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti)
+license its published website products under CC BY 4.0. The
+[open-data information](https://www.chmi.cz/o-chmu/produkty-a-sluzby/data-a-vyhodnoceni)
+separately confirms that licence for its open data.
+
+The public 1.0.1 build excludes authenticated app-service UV and local daily
+aggregates. Those channels remain available only in the separately labelled
+personal build and are attributed to ČHMÚ. Third-party access permission for
+that service has not been established; the website/open-data notices are not
+treated as a licence grant for that separate service.
 
 The plugin selects station observations, converts units and rounds values for
 display. It maps published ČHMÚ icon meanings to Pebble's smaller condition
@@ -16,14 +23,14 @@ vocabulary, uses quantitative classification where needed, and derives daily
 ranges from available ALADIN hours, requiring complete future days. It can retain
 already-past ALADIN temperature/condition forecasts with their original download
 times to fill morning context dropped by a later run. They remain forecasts,
-and a range with missing hours is identified as partial. When
-ČHMÚ full-day forecasts are enabled, its fresh local daily aggregates supply
+and a range with missing hours is identified as partial. In the personal build,
+when ČHMÚ full-day forecasts are enabled, its fresh local daily aggregates supply
 full-day ranges. Choosing ČHMÚ as the preferred UV source independently uses
 its clear-sky noon estimates. The UV value
 is not relabelled as an instantaneous or cloud-adjusted measurement.
 
 These presentations can differ from ČHMÚ's own applications. Service access
-and the data license are separate: the app service requires installation
+and the data license are separate: the personal build's app service requires installation
 authentication, obtained independently for this plugin. This is an unofficial
 product and is not endorsed by ČHMÚ. See [feed details](docs/FEEDS.md) for
 sources and transformations.
@@ -40,8 +47,9 @@ When enabled, Open-Meteo supplies actual precipitation probabilities and
 missing or extended forecast values. It also supplies a complete current-day
 range when ALADIN's available coverage is incomplete. Its forecast daily peak
 UV is used when
-chosen explicitly, or when preferred ČHMÚ UV is unavailable and completion is
-enabled. UV can also be hidden independently of all other weather fields.
+chosen (the public-build default), or in the personal build when preferred
+ČHMÚ UV is unavailable and completion is enabled. UV can also be hidden
+independently of all other weather fields.
 The plugin requests
 the selected forecast town, converts units, maps WMO weather codes to Pebble's
 condition vocabulary and combines these forecasts with ČHMÚ data. It retains

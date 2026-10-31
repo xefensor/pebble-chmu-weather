@@ -1,6 +1,6 @@
 Neoficiální počasí ČHMÚ pro Pebble: měření z blízkých českých stanic a místní předpovědi ALADIN.
 
-Čerstvé měření dodává aktuální teplotu, vlhkost a vítr, pokud je stanice hlásí společně. Chybějící údaje mohou doplnit předpovědi. Volitelné souhrny z aplikace ČHMÚ přidávají celodenní minima, maxima a polední UV pro jasnou oblohu. Volitelné Open-Meteo doplňuje pravděpodobnost srážek, chybějící údaje a předpověď až na sedm dní.
+Čerstvé měření dodává aktuální teplotu, vlhkost a vítr, pokud je stanice hlásí společně. Chybějící údaje mohou doplnit veřejné předpovědi ALADIN. Volitelné Open-Meteo doplňuje pravděpodobnost srážek, chybějící údaje, předpověď UV a předpověď až na sedm dní.
 
 V nastavení Pebble vyberte ČHMÚ Weather jako poskytovatele počasí. Údaje pak používá aplikace Počasí v hodinkách, časová osa a podporované ciferníky. Aplikace s podporou pluginů mohou číst také přímo zdroj weather/location. Použijí se místa a jednotky uložené v Pebble.
 
@@ -8,13 +8,13 @@ Funkce:
 - Automatický výběr blízké stanice nebo pevně zvolená stanice
 - Původní čas měření a rozlišení měření od předpovědi
 - Hodinová a denní předpověď s uvedením zdroje
-- Samostatné volby pro celodenní předpověď, UV a Open-Meteo
+- Doplňování z Open-Meteo a samostatné zapnutí či vypnutí předpovědi UV
 - Výpočet pocitové teploty, východu a západu slunce
 - Místní mezipaměť, která nevydává staré měření za nové
 - České/anglické nastavení, světlý i tmavý vzhled a přehledná diagnostika
 
 Pokrytí je omezené na Česko. Stanice neměří přímo ve vaší ulici. UV je předpověď, nikoli okamžité měření. Aktualizaci systémového Počasí řídí Pebble.
 
-Vyžaduje Pebble s povoleným náhledem pluginů. Bez osobního účtu, reklam, analytiky a serveru vývojáře. Projekt není spojen s ČHMÚ, Open-Meteo ani Core Devices.
+Vyžaduje Pebble s povoleným náhledem pluginů. Používá veřejné webové produkty a otevřená data ČHMÚ a volitelně Open-Meteo. Veřejná verze nepřistupuje k autentizované službě mobilní aplikace ČHMÚ. Bez osobního účtu, reklam, analytiky a serveru vývojáře. Projekt není spojen s ČHMÚ, Open-Meteo ani Core Devices.
 
 Zdroj a soukromí: https://github.com/xefensor/pebble-chmu-weather

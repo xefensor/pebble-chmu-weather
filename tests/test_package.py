@@ -37,8 +37,8 @@ class PackageTests(unittest.TestCase):
         self.project = Path(self.temp.name)
         (self.project / "src").mkdir()
         (self.project / "build").mkdir()
-        (self.project / "build/plugin.js").write_text("(()=>{globalThis.pluginReady=true;})();", encoding="utf-8")
-        (self.project / "src/config.html").write_text("<!doctype html><title>ČHMÚ Weather</title>", encoding="utf-8")
+        (self.project / "build/plugin.js").write_text("// CHMU_BUILD_VARIANT=public\n(()=>{globalThis.pluginReady=true;})();", encoding="utf-8")
+        (self.project / "src/config.html").write_text('<!doctype html><html data-build-variant="__CHMU_BUILD_VARIANT__"><title>ČHMÚ Weather</title>', encoding="utf-8")
         self.write_package(package())
 
     def write_package(self, value):
@@ -63,6 +63,41 @@ class PackageTests(unittest.TestCase):
         first = BUILD.build_project(self.project, run_js=False).read_bytes()
         second = BUILD.build_project(self.project, run_js=False).read_bytes()
         self.assertEqual(first, second)
+
+    def test_public_omits_backend_permission_and_personal_has_separate_identity(self):
+        source = package()
+        source['pebble']['usesPermissions'].append({'name':'Internet','parameters':{'domains':['data-provider.chmi.cz','chmu.rails.cz']}})
+        original = copy.deepcopy(source)
+        public = BUILD.appinfo_from_package(source)
+        personal = BUILD.appinfo_from_package(source, 'personal')
+        self.assertNotIn('chmu.rails.cz', public['usesPermissions'][1]['parameters']['domains'])
+        self.assertIn('chmu.rails.cz', personal['usesPermissions'][1]['parameters']['domains'])
+        self.assertEqual(public['uuid'], source['pebble']['uuid'])
+        self.assertNotEqual(personal['uuid'], public['uuid'])
+        self.assertEqual(personal['displayName'], 'ČHMÚ Weather Personal')
+        self.assertEqual(source, original)
+
+    def test_variant_output_bundles_and_config_markers_are_separate(self):
+        folder = self.project / 'build/personal'
+        folder.mkdir()
+        personal_script = b'// CHMU_BUILD_VARIANT=personal\n(()=>{})();'
+        (folder / 'plugin.js').write_bytes(personal_script)
+        public = BUILD.build_project(self.project, run_js=False)
+        public_bytes = public.read_bytes()
+        personal = BUILD.build_project(self.project, run_js=False, variant='personal')
+        self.assertEqual(personal, folder / 'CHMU-Weather-0.1.0-personal.pbw')
+        self.assertEqual(public.read_bytes(), public_bytes)
+        for output, variant in [(public, 'public'), (personal, 'personal')]:
+            with zipfile.ZipFile(output) as archive:
+                self.assertIn(f'data-build-variant="{variant}"'.encode(), archive.read('config.html'))
+                self.assertNotIn(b'__CHMU_BUILD_VARIANT__', archive.read('config.html'))
+
+    def test_public_packaging_rejects_personal_or_unmarked_bundle(self):
+        for script in [b'// CHMU_BUILD_VARIANT=personal\n(()=>{})();', b'(()=>{})();',
+                       b'// CHMU_BUILD_VARIANT=public\nfetch("https://chmu.rails.cz/api/");']:
+            (self.project / 'build/plugin.js').write_bytes(script)
+            with self.assertRaisesRegex(ValueError, 'variant|backend'):
+                BUILD.build_project(self.project, run_js=False)
 
     def test_release_candidate_filename_keeps_publishable_numeric_version(self):
         source = package()
