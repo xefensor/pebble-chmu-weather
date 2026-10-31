@@ -1,11 +1,10 @@
 {
   "name": "ČHMÚ Weather",
-  "version": "0.6.0",
-  "releaseCandidate": 1,
+  "version": "1.0.0",
   "pbw": {
-    "file": "CHMU-Weather-0.6.0-rc.1.pbw",
-    "sha256": "5819de2b18aed101a36d2975c02e1267c17df2b6314642d7d366250a85914e33",
-    "scriptSha256": "269d433937347ccd1244feae2c33a7448a7a21d13f9dda4cabf68aacdca11ba7",
+    "file": "CHMU-Weather-1.0.0.pbw",
+    "sha256": "87548da3392e764c7b6cf42304fcafb5bf30a1932715f6469921fb931aee9e9d",
+    "scriptSha256": "e6c73829a1e5b0dd8f374d020abd4b9f16f5deeb27cb591f16442d079f51517d",
     "configSha256": "715b98d20f0e6554ec4cd50800f0ae91d5738a009889c1000df6acdbba529ea3"
   },
   "icons": {
@@ -34,7 +33,7 @@
     "files": [
       {
         "file": "docs/images/settings-cs-dark.png",
-        "sha256": "2a104c4588464034b48c1dcf78ec250ba5a55a8b61f19f33b4e9421ceadaeffc",
+        "sha256": "81b54aa05f88a49c294e5438db28ccdd90cd11a1b8bfbc910d646cfad2ad6bd6",
         "pixels": [
           390,
           1920
@@ -42,7 +41,7 @@
       },
       {
         "file": "docs/images/settings-en-light.png",
-        "sha256": "ea03a99ce216fde64e4723830b3be13a5553ef8366b74816dc2c25dd48686058",
+        "sha256": "9e7a25f62c21bd935d2ece6e428eb46532763f02ef1f2b0389274f7752698e79",
         "pixels": [
           390,
           1887

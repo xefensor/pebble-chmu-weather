@@ -1,12 +1,16 @@
-ČHMÚ Weather 0.6.0 release candidate 1
+ČHMÚ Weather 1.0.0
 
-- Correct installed version display, reliable save errors and rollback to confirmed settings
-- Refines the plugin settings into readable cards with clearer spacing and controls
-- Adds English/Czech interface text and light/dark presentation
-- Puts current readings, station selection and measured/forecast status ahead of technical diagnostics
-- Keeps detailed source timestamps and provider information available in expandable sections
-- Prepares original plugin icons, listing text, source/archive checksums and a publishing checklist
-- Preserves the working native plugin runtime fix from 0.5.1, including the absence of JavaScript timers
-- Retains existing station freshness rules, ALADIN forecasts, independent UV/full-day settings, optional Open-Meteo completion and original cache timestamps
+First stable release of the unofficial ČHMÚ weather provider for Pebble.
 
-This is a sideloadable plugin-preview candidate. It does not establish public-store eligibility or complete physical phone/watch validation. Pebble currently limits plugin publishing to invited developers.
+- Nearby ČHMÚ station temperature, humidity and wind with original measurement times
+- ALADIN hourly forecasts and local daily ranges
+- Independent ČHMÚ full-day forecast and clear-sky noon UV options
+- Optional Open-Meteo completion for rain probabilities, missing fields and up to seven forecast days
+- Pebble Weather, timeline and plugin-aware watchface integration
+- English/Czech settings with light/dark appearance, station selection and expandable source details
+- Reliable settings save errors and rollback to confirmed values
+- Explicit forecast fallback labels, source timestamps and cache-age limits
+
+Requires a Pebble mobile app supporting plugins. Coverage follows nearby Czech stations and forecast towns. Weather service availability and Pebble's import schedule control when new readings appear. No personal weather-service account, analytics or developer-operated server.
+
+Validation results and remaining live-service/phone checks are recorded in the repository; publication eligibility is handled by the developer account.

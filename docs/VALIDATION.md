@@ -1,5 +1,40 @@
 # Release validation
 
+## 1.0.0 — first stable release
+
+This promotes 0.6.0 rc.1 to numeric version **1.0.0**, removes the candidate
+label and prepares stable PBW/source/Store filenames. Weather algorithms,
+permissions, source contracts, cache ages and the settings HTML are unchanged.
+No Store upload or new physical-device/live-service success is claimed.
+
+- **297 JavaScript tests** and **14 packaging tests** pass on the 1.0.0 build.
+  The package-derived settings version now reports 1.0.0. Original UUID and
+  `weather/location` declarations remain unchanged.
+- Exact-PBW restricted-runtime regressions and repeat packaging verify the new
+  bundle. Its runtime difference from the candidate is package-version metadata
+  and removal of the release-candidate marker. The settings HTML retains SHA-256
+  `715b98d20f0e6554ec4cd50800f0ae91d5738a009889c1000df6acdbba529ea3`.
+- The identical HTML retains its 88-case/20-interaction validation below. Four
+  targeted English/Czech light/dark renders and an autosave/refresh smoke check
+  confirm the 1.0.0 footer, no page HTTP requests, JavaScript errors or overflow.
+  Refreshed documentation previews use the same illustrative fixture weather.
+- The earlier strict live smoke encountered existing ČHMÚ request deadlines
+  and stopped before its exact-bundle live phase. Version promotion does not
+  change those limits or establish fresh-station availability on this network.
+  Detailed results and remaining phone checks are retained below.
+- Stable source and Store archives are reproducible and byte-checked, with
+  current icons, previews, descriptions, privacy/attribution, licenses and
+  checksums. If publishing is enabled for the developer account, the exact
+  prepared 1.0.0 PBW is the file to upload; this preparation does not submit it.
+
+PBW SHA-256:
+
+`87548da3392e764c7b6cf42304fcafb5bf30a1932715f6469921fb931aee9e9d`
+
+Packaged script SHA-256:
+
+`e6c73829a1e5b0dd8f374d020abd4b9f16f5deeb27cb591f16442d079f51517d`
+
 ## 0.6.0 release candidate 1
 
 The checks below use the final candidate and actual rendered settings. No

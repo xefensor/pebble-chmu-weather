@@ -10,13 +10,14 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install the 0.6.0 release candidate 1
+## Install 1.0.0
 
 [Settings preview: English/light](docs/images/settings-en-light.png) · [Czech/dark](docs/images/settings-cs-dark.png)
 
-1. In Pebble mobile app 1.16.x, enable **Settings → Plugins → Plugins /
-   permissions preview**. Labels may change while plugins are in preview.
-2. Open [CHMU-Weather-0.6.0-rc.1.pbw](dist/CHMU-Weather-0.6.0-rc.1.pbw) with the Pebble app.
+1. Use a Pebble mobile app supporting the plugin APIs. In 1.16.x, enable
+   **Settings → Plugins → Plugins / permissions preview** if required. Labels
+   may change between app versions.
+2. Open [CHMU-Weather-1.0.0.pbw](dist/CHMU-Weather-1.0.0.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
    `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com` through Pebble's
    normal permission flow.
@@ -29,13 +30,14 @@ developer-operated server is needed.
    **Source details**.
 
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
-This is a sideloadable plugin-preview candidate, not a public Store release.
-Pebble currently limits plugin publishing to invited developers. The user
-reported that 0.5.1 resolved the original runtime failure; this candidate's
-physical phone/watch checks remain separate from its automated validation.
-[Source archive](dist/CHMU-Weather-0.6.0-rc.1-source.zip) and
-[prepared store package](dist/CHMU-Weather-0.6.0-rc.1-store-package.zip) are included.
-Read the [publishing checklist](store/PUBLISHING.md) before any eligible upload.
+Version **1.0.0** is the prepared stable release. If publishing is enabled for
+your developer account, use the exact PBW and assets in the store package.
+Preparing these files does not submit a Store listing. The earlier 0.5.1 runtime
+fix was reported working; current live-service and physical-device validation
+limits are recorded separately in [validation](docs/VALIDATION.md).
+[Source archive](dist/CHMU-Weather-1.0.0-source.zip) and
+[prepared store package](dist/CHMU-Weather-1.0.0-store-package.zip) are included.
+Read the [publishing checklist](store/PUBLISHING.md) before uploading.
 
 ## Settings
 

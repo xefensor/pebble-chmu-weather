@@ -1,20 +1,19 @@
 # ČHMÚ Weather publishing package
 
-## Candidate status
+## Release status
 
-This directory prepares **0.6.0 release candidate 1** for sideloaded testing and
-future eligible publication. No appstore submission has been performed.
+This directory prepares **ČHMÚ Weather 1.0.0** for publication and sideloading.
+No appstore submission has been performed by preparing these files.
 
-Checked on 31 October 2026, Pebble's official [Publishing Plugins guide](https://developer.repebble.com/guides/plugins/publishing-plugins/)
-limits publishing to invited developers. Its [plugin overview](https://developer.repebble.com/guides/plugins/)
-also warns that the API remains a preview. Preparing this package does not
-establish an invitation or permission to publish publicly. Recheck those pages
-before any upload.
+If publishing is enabled for your developer account, upload the exact verified
+PBW and the two prepared icons using the available plugin publishing flow.
+The [plugin publishing guide](https://developer.repebble.com/guides/plugins/publishing-plugins/)
+and the current tool/dashboard describe that flow. Account eligibility is
+separate from the software's release version and its validation results.
 
 The previously shipped 0.5.1 fixed forbidden timer access and was reported
-working by the user. That report is not full physical validation of this new
-candidate. Current results and remaining checks are in
-[validation](../docs/VALIDATION.md).
+working. Current automated checks, the live-service timeout result and remaining
+physical phone/watch checks are recorded in [validation](../docs/VALIDATION.md).
 
 ## Prepared files and listing fields
 
@@ -23,8 +22,8 @@ candidate. Current results and remaining checks are in
 | Type | Phone-only Pebble plugin; no native watch binary |
 | Name | ČHMÚ Weather |
 | Developer | Xef |
-| Numeric version | 0.6.0 |
-| Candidate filename | `CHMU-Weather-0.6.0-rc.1.pbw` |
+| Numeric version | 1.0.0 |
+| Release filename | `CHMU-Weather-1.0.0.pbw` |
 | UUID | `00866104-6ce5-4ae3-952f-9800f437442c` |
 | Source | `weather/location`, multiple locations |
 | Plugin category | Choose the weather category offered by the current plugin publishing tool |
@@ -36,13 +35,13 @@ candidate. Current results and remaining checks are in
 | Support | https://github.com/xefensor/pebble-chmu-weather/issues |
 | Code license | PolyForm Noncommercial 1.0.0, with Xef's required attribution |
 
-The manifest keeps the numeric version; `rc.1` identifies the candidate file.
+The manifest and release filename both use **1.0.0** without a candidate suffix.
 Each appstore version must be unused and numeric. Preserve the UUID for later
 releases. The package does not install a separate Android companion app, run a
 watchface, or require a user weather-service account.
 
-The candidate bundle is `CHMU-Weather-0.6.0-rc.1-store-package.zip`. A separate
-`CHMU-Weather-0.6.0-rc.1-source.zip` contains source and notices. The store bundle
+The release bundle is `CHMU-Weather-1.0.0-store-package.zip`. A separate
+`CHMU-Weather-1.0.0-source.zip` contains source and notices. The store bundle
 must include the exact verified PBW, not a later unchecked rebuild.
 
 ## Plugin artwork
@@ -87,7 +86,7 @@ and `licenses/SunCalc-MIT.txt` in distributions. The public open-data attributio
 must not be represented as a separate license grant for authenticated app data.
 Do not imply that ČHMÚ, Open-Meteo or Core Devices endorse this project.
 
-## Checks before any eligible upload
+## Checks before uploading
 
 - Verify numeric version, UUID, `projectType: plugin`, manifest version 2,
   `plugin.js`, the local `config.html` and all declared source shapes.
@@ -113,10 +112,11 @@ Do not imply that ČHMÚ, Open-Meteo or Core Devices endorse this project.
 - Keep settings previews illustrative and free of real installation identifiers,
   credentials, precise private coordinates or real account details.
 
-## Future publication workflow
+## Publication workflow
 
-Use the same developer identity and existing UUID. Recheck invitation/preview
-eligibility first, then inspect the current tool's help and dashboard behavior.
+Use the same developer identity and existing UUID. If plugin publishing is
+enabled for your account, inspect the current tool's help and dashboard release
+state before uploading.
 
 The installed Pebble tool's `publish --help` supports `--pbw PATH` to upload an
 already-built PBW without a rebuild or emulator. It also documents
@@ -125,8 +125,7 @@ immediate publication, so do not assume defaults are identical across tool
 versions. Inspect the dashboard's release/visibility state before making it
 public; new listing changes can be visible immediately.
 
-When eligible, use the exact candidate PBW and the two prepared icons through
+Use the exact release PBW and the two prepared icons through
 the plugin's offered publishing flow. Do not add watch screenshots, OAuth
 connectors, a companion app or native platform binaries that this plugin does
-not use. Do not run `pebble publish` merely to inspect these files. No upload,
-public listing, user message or account change is part of preparing this bundle.
+not use. Do not run `pebble publish` merely to inspect these files. Preparing this bundle does not upload or publish it.

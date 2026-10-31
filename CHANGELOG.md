@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0
+
+- Promotes the 0.6.0 release candidate to the first stable release.
+- Keeps the same weather algorithms, source contract, permissions and settings
+  behavior; this promotion changes release version metadata and packaging.
+- Includes the phone-only PBW, source archive, original plugin icons, bilingual
+  listing copy, privacy/attribution notices and publishing checklist.
+- Keeps live-service timeout results and remaining physical-device checks in
+  validation independently of publication eligibility.
+
 ## 0.6.0 release candidate 1
 
 - Reports the installed package version correctly in settings.

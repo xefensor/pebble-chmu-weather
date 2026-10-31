@@ -34,7 +34,7 @@ Open-Meteo, https://open-meteo.com/.
 Weather data are attributed under
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
 API access is governed separately by [Open-Meteo's service terms](https://open-meteo.com/en/terms).
-This noncommercial beta uses the free forecast endpoint.
+This noncommercial plugin uses the free forecast endpoint.
 
 When enabled, Open-Meteo supplies actual precipitation probabilities and
 missing or extended forecast values. It also supplies a complete current-day
