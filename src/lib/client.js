@@ -10,8 +10,9 @@ var createHistory = require('./forecast-history').createHistory;
 var buildInstance = require('./envelope').buildInstance;
 var REFRESH = 30 * 60000;
 var MAX_FORECAST_AGE = 6 * 3600000;
-// The phone host gives a native source handler 20 seconds. Keep time for its
-// reply even when preferences, GPS and both observation endpoints are slow.
+// The phone host gives a native source handler 20 seconds. Stop starting work
+// and reject late replies after 17 seconds. Native plugins cannot use timers,
+// so only the host can interrupt a bridge call that never settles.
 var REQUEST_BUDGET = 17000;
 var PREFIX = 'chmu.cache.v1.';
 var SETTINGS = 'chmu.settings.v1';
@@ -54,14 +55,19 @@ module.exports = function(options) {
         return;
       }
       var done = false;
-      var timer = options.later(function() {
+      var endsAt = options.now() + Math.min(timeout, remaining);
+      // An injected scheduler is useful outside the native plugin host. Never
+      // read browser timer globals here: Pebble installs throwing getters.
+      var timed = typeof options.later === 'function' && typeof options.cancelLater === 'function';
+      var timer = timed ? options.later(function() {
         if (!done) { done = true; reject({code: 'TIMEOUT', message: 'ČHMÚ request timed out'}); }
-      }, Math.min(timeout, remaining));
+      }, Math.min(timeout, remaining)) : null;
       function finish(error, value) {
         if (done) { return; }
         done = true;
-        options.cancelLater(timer);
-        if (error) { reject(error); } else { resolve(value); }
+        if (timed) { options.cancelLater(timer); }
+        if (options.now() >= endsAt) { reject({code:'TIMEOUT', message:'ČHMÚ request timed out'}); }
+        else if (error) { reject(error); } else { resolve(value); }
       }
       try { start(function(value) { finish(null, value); }, function(error) { finish(error || {code:'UNKNOWN'}); }); }
       catch (error) { finish(error); }
@@ -74,7 +80,7 @@ module.exports = function(options) {
     return deadline(function(resolve, reject) {
       options.geolocation.getCurrentPosition(function(p) { resolve(p.coords); },
         function() { reject({code:'PERMISSION_DENIED', message:'Current location unavailable; check Location permission'}); },
-        {maximumAge: REFRESH, timeout: 7000, enableHighAccuracy: false});
+        {maximumAge: REFRESH, timeout: Math.max(1, Math.min(7000, budget.endsAt - options.now())), enableHighAccuracy: false});
     }, 8000, budget);
   }
   function coordinates(coords) {

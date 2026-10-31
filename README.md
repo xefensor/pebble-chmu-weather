@@ -10,11 +10,11 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install the 0.5.0 beta
+## Install the 0.5.1 beta
 
 1. In Pebble mobile app 1.16.x, enable **Settings → Plugins → Plugins /
    permissions preview**. Labels may change while plugins are in preview.
-2. Open [CHMU-Weather-0.5.0.pbw](dist/CHMU-Weather-0.5.0.pbw) with the Pebble app.
+2. Open [CHMU-Weather-0.5.1.pbw](dist/CHMU-Weather-0.5.1.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
    `opendata.chmi.cz`, `chmu.rails.cz` and `api.open-meteo.com` through Pebble's
    normal permission flow.
@@ -28,7 +28,7 @@ developer-operated server is needed.
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
 This is a sideloadable beta, not a Pebble Store release. Installation and
 end-to-end delivery inside the physical phone/watch runtime still need testing.
-Source: [CHMU-Weather-0.5.0-source.zip](dist/CHMU-Weather-0.5.0-source.zip).
+Source: [CHMU-Weather-0.5.1-source.zip](dist/CHMU-Weather-0.5.1-source.zip).
 
 ## Weather sources
 
@@ -123,6 +123,12 @@ version); the plugin cannot force that importer to run every 30 minutes.
 Station HTTP results can be reused for five minutes and forecasts for
 30 minutes across consumers. The settings Refresh button bypasses those short
 reuse windows; failures retain usable cached data with its original timestamps.
+
+Pebble plugins cannot use JavaScript timers. The client checks its six-second
+HTTP limits and 17-second overall budget before starting work and when bridge
+calls finish. A pending call cannot be interrupted by those checks; Pebble
+enforces the final 20-second source-session timeout. GPS uses its native
+timeout, capped at seven seconds or the remaining request budget.
 
 When a weather service supplies an ETag or Last-Modified validator, the next
 check can use a conditional GET. An HTTP 304 reuses the validated body while

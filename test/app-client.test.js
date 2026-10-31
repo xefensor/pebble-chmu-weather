@@ -318,6 +318,37 @@ test('Each endpoint has a six-second timeout even under a longer budget; late JS
   assert.equal(f.timers.size,0);
 });
 
+test('Native timerless bridge rejects a completed HTTP response beyond its six-second limit without caching it', async()=>{
+  const held=deferred();
+  const f=fixture({options:{later:undefined,cancelLater:undefined},
+    http:call=>call.path==='v1/uv_measures' ? held.promise : undefined});
+  const result=f.client.uv(POINT,false,{endsAt:NOW+17000});
+  const rejected=assert.rejects(result,error=>error.code==='TIMEOUT');
+  await flush();
+  assert.ok(f.calls.some(call=>call.path==='v1/uv_measures'));
+  f.setNow(NOW+6000);
+  held.resolve(response([{value:2}]));
+  await rejected;
+  assert.equal(f.values.has(AUTH),true);
+  assert.equal([...f.values.keys()].some(key=>key.startsWith(CACHE)),false);
+  assert.equal(f.timers.size,0);
+});
+
+test('Native timerless bridge cannot save credentials from login completed beyond the shared budget', async()=>{
+  const held=deferred();
+  const f=fixture({options:{later:undefined,cancelLater:undefined},
+    http:call=>call.path==='v1/jwt/login' ? held.promise : undefined});
+  const result=f.client.uv(POINT,false,{endsAt:NOW+1000});
+  const rejected=assert.rejects(result,error=>error.code==='TIMEOUT');
+  await flush();
+  f.setNow(NOW+1000);
+  held.resolve(response(tokens('late')));
+  await rejected;
+  assert.equal(f.values.has(AUTH),false);
+  assert.equal([...f.values.keys()].some(key=>key.startsWith(CACHE)),false);
+  assert.equal(f.calls.length,1);
+});
+
 test('Exhausted budgets and malformed coordinates never start HTTP', async()=>{
   const f=fixture();
   await assert.rejects(f.client.uv(POINT,false,{endsAt:NOW}),error=>error.code==='TIMEOUT');

@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const nativeSandbox = require('./native-sandbox');
 const catalog = require('../src/catalog.json');
 const createClient = require('../src/lib/client');
 const {parseObservation} = require('../src/lib/station-observation');
@@ -427,9 +428,9 @@ async function main() {
   const bundleCallStart = calls.length;
   const host = {...pebble,secureStorage,registerSourceHandler:fn => {host.handler=fn;},
     registerConfigHandler:fn => {host.config=fn;},refreshSources:() => {}};
-  vm.runInNewContext(bundle.toString('utf8'),
-    {Pebble:host,localStorage:storage,navigator:{geolocation},fetch:bridge,setTimeout,clearTimeout,
-      crypto:{randomUUID:crypto.randomUUID},console,Date});
+  vm.runInContext(bundle.toString('utf8'),
+    nativeSandbox({Pebble:host,localStorage:storage,navigator:{geolocation},fetch:bridge,
+      crypto:{randomUUID:crypto.randomUUID},console,Date}));
   assert.equal(typeof host.handler,'function');
   assert.equal(typeof host.config,'function');
   async function config(message) {

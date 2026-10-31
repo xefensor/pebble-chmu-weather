@@ -1,6 +1,6 @@
 {
   "name": "pebble-chmu-weather",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
   "author": "Xef",
   "license": "SEE LICENSE IN LICENSE",

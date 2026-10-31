@@ -6,9 +6,9 @@ var client = createClient({
   fetch: function(url, init) { return fetch(url, init); }, geolocation: navigator.geolocation,
   readSource: function(request) { return Pebble.readSource(request); },
   subscribeSource: function(request) { return Pebble.subscribeSource(request); },
-  now: function() { return Date.now(); },
-  later: function(fn, delay) { return setTimeout(fn, delay); },
-  cancelLater: function(timer) { clearTimeout(timer); }
+  // Native plugins have no JavaScript timers. The host bounds the source
+  // session; the client checks elapsed time whenever a bridge call finishes.
+  now: function() { return Date.now(); }
 });
 
 Pebble.registerSourceHandler(async function(request, respond) {

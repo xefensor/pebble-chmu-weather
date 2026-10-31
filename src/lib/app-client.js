@@ -92,14 +92,18 @@ function createClient(options) {
         reject(timeout()); return;
       }
       var done = false;
-      var timer = options.later(function() {
+      var endsAt = options.now() + Math.min(limit, remaining);
+      // The native plugin host forbids JS timers. It owns the final session
+      // timeout; without an injected scheduler, reject late bridge completions.
+      var timed = typeof options.later === 'function' && typeof options.cancelLater === 'function';
+      var timer = timed ? options.later(function() {
         if (!done) { done = true; reject(timeout()); }
-      }, Math.min(limit, remaining));
+      }, Math.min(limit, remaining)) : null;
       function finish(error, value) {
         if (done) { return; }
         done = true;
-        options.cancelLater(timer);
-        if (options.now() >= budget.endsAt) { reject(timeout()); }
+        if (timed) { options.cancelLater(timer); }
+        if (options.now() >= endsAt) { reject(timeout()); }
         else if (error) { reject(error); }
         else { resolve(value); }
       }

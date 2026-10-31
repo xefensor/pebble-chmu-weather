@@ -1,8 +1,51 @@
 # Beta validation
 
-Version 0.5.0 checked on 31 October 2026. Earlier results below are historical.
+Version 0.5.1 checked on 31 October 2026. Earlier results below are historical.
 
-## 0.5.0 release checks
+## 0.5.1 runtime compatibility fix
+
+- The physical-phone report from Pebble app **1.16.0.5** identifies the failure:
+  `PLUGIN_UNAVAILABLE · setTimeout is not available to plugins`. Pebble weather
+  works on that installation; the failing source is ČHMÚ Weather.
+- Earlier bundled-script smoke checks supplied browser timers. They therefore
+  missed the native runtime's restriction, despite passing their weather-data
+  assertions. Those historical checks do not establish native compatibility.
+- The native entrypoint no longer references JavaScript timers. The client can
+  still use an explicitly injected scheduler outside the native plugin host.
+- HTTP results are checked against a six-second per-call deadline, and work is
+  checked against the overall 17-second budget before starting and when bridge
+  calls finish. Without timers, these checks cannot interrupt a pending Promise.
+  Pebble's native **20-second source-session timeout** is the final bound.
+  GPS uses its supported native timeout, capped at seven seconds or the
+  remaining budget.
+- The UUID, four permitted network domains, forecast/provenance rules and
+  30-minute source refresh interval are unchanged.
+- `npm test`: **291 JavaScript tests and 12 Python packaging tests pass**.
+  Seven bundled-entrypoint regressions define throwing timer getters inside
+  the VM, matching the phone's restriction. All seven fail against the 0.5.0
+  PBW, reproducing the reported error; all seven pass against 0.5.1, both the
+  freshly bundled source and the exact JavaScript extracted from the final PBW.
+- These fixtures cover saved and GPS locations, original station measurements,
+  condition icons, default ČHMÚ app/UV and seven-day supplemental forecasts,
+  optional-service failure, secure credentials, cache reuse, forced refresh,
+  configuration changes and rejection of completed late HTTP responses.
+- The live-smoke harness and deterministic forecast-history harness now also
+  reject timer access. The final packaged script passes the network-free
+  forecast-history checks with that restriction. No new live-service result
+  or physical-device success is claimed for this compatibility-only patch.
+- The PBW is byte-identical across repeat packaging. Its manifest keeps the
+  existing source declarations and permissions, and its script and local
+  settings match the current build byte for byte. The source archive excludes
+  dependencies, credentials and nested release files.
+- PBW SHA256:
+  `8634d15dd9c5055daab138c673c4c410cb108881f44b7398fbe5ce174b809c82`.
+  Packaged `plugin.js` SHA256:
+  `b5606d23e2b72edd6ebd5272cdf070837c828b9b24cddbfa3565ba00eac0a488`.
+
+No physical-phone installation or end-to-end delivery of 0.5.1 is claimed yet.
+This remains a sideloadable beta.
+
+## Historical 0.5.0 release checks
 
 - `npm test`: **280 JavaScript tests and 12 Python packaging tests pass**.
 - The phone-only PBW keeps its UUID, four network domains, source choices and
@@ -178,9 +221,10 @@ preserving diagnostics for other locations. Parser-generated unknown-condition
 gaps can use known supplemental conditions without replacing valid ČHMÚ
 temperatures.
 
-Request deadlines share a 17-second total budget, leaving room before the
-native host's 20-second timeout. This does not guarantee that fresh weather
-can be obtained within that budget on every phone or network.
+The native runtime's current deadline behavior is described in the 0.5.1
+section above. Historical timer-based checks below did not reproduce that
+runtime restriction. No deadline guarantees that fresh weather can be obtained
+on every phone or network.
 
 ## Hardware/runtime checks still needed
 

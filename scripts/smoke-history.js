@@ -3,6 +3,7 @@
 // cannot be asked to remove a previously downloaded morning on demand.
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const nativeSandbox = require('./native-sandbox');
 const HOUR = 3600000;
 const DAY_START = Date.parse('2026-10-30T23:00:00Z'); // Prague midnight.
 const FIRST_NOW = Date.parse('2026-10-31T10:15:00Z');
@@ -60,9 +61,9 @@ function host(bundle,local) {
     } else throw new Error('Unexpected injected history endpoint');
     return {ok:true,status:200,headers:{get:() => null},json:async () => body};
   };
-  vm.runInNewContext(bundle,{Pebble:pebble,localStorage:local,
+  vm.runInContext(bundle,nativeSandbox({Pebble:pebble,localStorage:local,
     navigator:{geolocation:{getCurrentPosition:() => {throw new Error('Saved place must not request GPS');}}},
-    fetch,setTimeout,clearTimeout,Date:Clock,console});
+    fetch,Date:Clock,console}));
   async function read(force=true) {
     if (force) {
       let reply;

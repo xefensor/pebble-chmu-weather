@@ -265,6 +265,40 @@ test('Diagnostics explain a still-saved location that has moved beyond supported
   assert.equal(f.client.state().locations[0].temperature,undefined);
 });
 
+test('Native timerless public fetch completing beyond six seconds is not cached; timely station remains usable', async()=>{
+  let release;
+  const f=fixture({options:{later:undefined,cancelLater:undefined},http:async url=>{
+    if (url.includes('graf.meteogram/')) return new Promise(resolve=>{ release=()=>resolve({ok:true,json:async()=>forecast()}); });
+    return {ok:true,json:async()=>copy(observationFixture)};
+  }});
+  const result=f.client.getWeather(REQUEST);
+  await flush();
+  assert.equal(typeof release,'function');
+  f.setNow(NOW+6000);
+  release();
+  const envelope=await result;
+  assert.equal(envelope.instances[0].properties.temperature.numericValue.value,6.8);
+  assert.equal(f.values.has('chmu.cache.v1.forecast.75'),false);
+  assert.equal(f.timers.size,0);
+});
+
+test('Native timerless preferences completing beyond the shared budget start no GPS or network work', async()=>{
+  let release;
+  const f=fixture({options:{later:undefined,cancelLater:undefined,
+    readSource:request=>request.item==='weather_location'
+      ? new Promise(resolve=>{ release=()=>resolve({instances:[savedPlace()]}); })
+      : Promise.resolve({instances:[]})}});
+  const result=f.client.getWeather(REQUEST);
+  const rejected=assert.rejects(result,error=>error.code==='TIMEOUT');
+  await flush();
+  f.setNow(NOW+17000);
+  release();
+  await rejected;
+  assert.equal(f.gpsCalls(),0);
+  assert.equal(f.urls.length,0);
+  assert.equal(f.timers.size,0);
+});
+
 test('Hung graph and backup HTTP operations settle after their two bounded six-second attempts', async()=>{
   const f=fixture({http:()=>new Promise(()=>{})});
   let outcome='pending';
