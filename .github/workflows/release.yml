@@ -1,0 +1,57 @@
+name: GitHub release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - dist/**
+      - dist.zip
+      - releases/**
+      - .github/release.json
+      - .github/workflows/release.yml
+      - scripts/github-release.py
+      - tests/test_github_release.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.prepare.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: python3 -m unittest discover -s tests -p test_github_release.py
+      - id: prepare
+        run: python3 scripts/github-release.py prepare --output "$RUNNER_TEMP/release"
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: github-release-${{ github.repository }}-${{ needs.check.outputs.release_id }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python3 scripts/github-release.py prepare --output "$RUNNER_TEMP/release"
+      - run: python3 scripts/github-release.py publish --output "$RUNNER_TEMP/release"
+        env:
+          GH_TOKEN: ${{ github.token }}

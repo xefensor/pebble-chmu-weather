@@ -1,0 +1,25 @@
+{
+  "repository": "xefensor/pebble-chmu-weather",
+  "kind": "chmu",
+  "display_name": "ČHMÚ Weather",
+  "tag_prefix": "v",
+  "prerelease": false,
+  "assets": [
+    "dist/CHMU-Weather-{release_id}.pbw",
+    "dist/CHMU-Weather-{release_id}-source.zip",
+    "dist/CHMU-Weather-{release_id}-store-package.zip"
+  ],
+  "checksums_file": "dist/SHA256SUMS",
+  "app_uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
+  "source_archive": {
+    "path": "dist/CHMU-Weather-{release_id}-source.zip",
+    "prefix": ""
+  },
+  "notes": {
+    "path": "store/release-notes.txt"
+  },
+  "bootstrap": {
+    "version": "1.0.1",
+    "source_commit": "127995bf5612809c6693c0622813198475b37a75"
+  }
+}
