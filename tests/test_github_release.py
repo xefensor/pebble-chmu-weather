@@ -158,6 +158,29 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Stale Core tar input"):
             self.prepared()
 
+    def test_source_archive_excludes_working_directories_and_compiled_pbws(self):
+        names = self.run_git("ls-tree", "-r", "--name-only", self.original).splitlines()
+        sources = {name: release.committed(self.root, self.original, name)
+                   for name in names if release.critical(name)}
+        for forbidden in ["build/personal/CHMU-personal.pbw", "node_modules/example/index.js",
+                          ".git/config", ".pebble/cache.json", "CHMU-personal.pbw",
+                          "fixtures/Personal.PBW"]:
+            with self.subTest(member=forbidden):
+                archive = zip_bytes({"release-root/" + name: data
+                    for name, data in {**sources, forbidden: b"must not be published"}.items()})
+                with self.assertRaisesRegex(ValueError, "Source archive contains"):
+                    release.validate_source(self.root, self.original, archive, "release-root/")
+
+    def test_source_archive_allows_committed_personal_build_recipe_source(self):
+        recipe = b"// Source recipe for the optional personal build; not a compiled PBW.\n"
+        self.write("src/personal-build.js", recipe)
+        commit = self.commit()
+        names = self.run_git("ls-tree", "-r", "--name-only", commit).splitlines()
+        sources = {name: release.committed(self.root, commit, name)
+                   for name in names if release.critical(name)}
+        validated = release.validate_source(self.root, commit, zip_bytes(sources))
+        self.assertEqual(validated["src/personal-build.js"], recipe)
+
     def test_core_sdk_header_cannot_be_stale_inside_an_otherwise_current_tar(self):
         with tarfile.open(self.root / "releases/fixture-1.2.3.tgz") as archive:
             files = {member.name[8:]: archive.extractfile(member).read() for member in archive.getmembers()}

@@ -91,6 +91,11 @@ def validate_source(root, commit, source, prefix=""):
         require(prefix.endswith("/") and all(name.startswith(prefix) for name in files),
                 "Unexpected source archive prefix")
         files = {name[len(prefix):]: content for name, content in files.items()}
+    for path in files:
+        member = PurePosixPath(path)
+        require(member.parts[0].lower() not in {"build", "node_modules", ".git", ".pebble"},
+                "Source archive contains an excluded working directory: " + path)
+        require(member.suffix.lower() != ".pbw", "Source archive contains a compiled PBW: " + path)
     names = git(root, "ls-tree", "-r", "--name-only", "-z", commit).decode().split("\0")
     for path in names:
         if path and critical(path):
