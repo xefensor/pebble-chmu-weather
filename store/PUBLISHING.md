@@ -2,10 +2,11 @@
 
 ## Release status
 
-This directory prepares the **public ČHMÚ Weather 1.0.1** build for publication
-and sideloading. Use this build for the Store. The separate Personal build is
-excluded from the public release and Store package.
-No appstore submission has been performed by preparing these files.
+The **public ČHMÚ Weather 1.0.1** build and prepared store package are available
+on the [GitHub release page](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1).
+This directory contains its listing material. The separate Personal build is
+excluded from the public release and store package.
+GitHub publication has not submitted a Pebble appstore listing.
 
 If publishing is enabled for your developer account, upload the exact verified
 PBW and the two prepared icons using the available plugin publishing flow.
@@ -131,7 +132,15 @@ Keep this PBW out of `dist`, public release uploads and the Store bundle.
 Its source and build instructions are available in the source archive, but
 its authenticated-service access is not presented as cleared for publication.
 
-## Publication workflow
+## GitHub releases and frozen packages
+
+The [GitHub release workflow](../docs/GITHUB-RELEASES.md) publishes only the
+checked public PBW, source/store archives and selected checksums. It does not
+rebuild the package or invoke Pebble's publishing command. A later docs-only
+update does not change an existing release: use the package identified by the
+release checksums, and prepare a new version if runtime or package bytes change.
+
+## Pebble appstore workflow
 
 Use the same developer identity and existing UUID. If plugin publishing is
 enabled for your account, inspect the current tool's help and dashboard release

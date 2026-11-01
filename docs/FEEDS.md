@@ -18,9 +18,9 @@ schemas are documented below as personal-build features only. It has its own
 UUID and is excluded from public release artifacts.
 
 Endpoint/schema checks were performed on 31 October 2026. ČHMÚ's website
-graphs are publicly readable. Current [website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti)
-license published website products under CC BY 4.0, and its public open-data
-datasets are separately licensed CC BY 4.0. The personal build's app service
+graphs are publicly readable. [Website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti) inspected
+on that date licensed published website products under CC BY 4.0, and the
+inspected public open-data datasets were separately licensed CC BY 4.0. The personal build's app service
 uses installation authentication; third-party access permission for it remains
 unconfirmed. No supported public API contract was established for these backends. Keep
 parsing defensive and retain the published open-data export as an independent

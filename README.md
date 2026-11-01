@@ -10,14 +10,23 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Install the public 1.0.1 build
+## Download and install 1.0.1
+
+The public **[GitHub release v1.0.1](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1)** is available now:
+
+[Install PBW](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1.pbw) · [Source](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1-source.zip) · [Store package](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1-store-package.zip) · [SHA-256 checksums](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/SHA256SUMS.txt)
+
+This is the public plugin, not **ČHMÚ Weather Personal**. A stable GitHub
+release does not itself grant access to Pebble's plugin preview or permission
+to submit an appstore listing. [Publishing status and checks](store/PUBLISHING.md)
+remain separate from the downloadable version.
 
 [Settings preview: English/light](docs/images/settings-en-light.png) · [Czech/dark](docs/images/settings-cs-dark.png)
 
 1. Use a Pebble mobile app supporting the plugin APIs. In 1.16.x, enable
    **Settings → Plugins → Plugins / permissions preview** if required. Labels
    may change between app versions.
-2. Open [CHMU-Weather-1.0.1.pbw](dist/CHMU-Weather-1.0.1.pbw) with the Pebble app.
+2. Open the [released PBW](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1.pbw) with the Pebble app.
 3. Allow Location and internet access to `data-provider.chmi.cz`,
    `opendata.chmi.cz` and `api.open-meteo.com` through Pebble's
    normal permission flow.
@@ -30,13 +39,13 @@ developer-operated server is needed.
    **Source details**.
 
 Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
-Version **1.0.1** is the prepared public release. If publishing is enabled for
+Version **1.0.1** is the current public GitHub release. If publishing is enabled for
 your developer account, use the exact PBW and assets in the store package.
 Preparing these files does not submit a Store listing. The earlier 0.5.1 runtime
 fix was reported working; current live-service and physical-device validation
 limits are recorded separately in [validation](docs/VALIDATION.md).
-[Source archive](dist/CHMU-Weather-1.0.1-source.zip) and
-[prepared store package](dist/CHMU-Weather-1.0.1-store-package.zip) are included.
+The release includes the source archive, prepared store package and checksums.
+The same checked files remain in [`dist/`](dist/).
 Read the [publishing checklist](store/PUBLISHING.md) before uploading.
 
 ## Settings
@@ -188,6 +197,20 @@ Weather bridge does not retain every custom property. If a station observation i
 available, direct consumers can still receive the observation; Pebble's native
 provider bridge may reject the incomplete location and use its own fallback.
 
+## Releases and development
+
+New packaged versions committed to `main` are checked and published by
+[GitHub Actions](https://github.com/xefensor/pebble-chmu-weather/actions/workflows/release.yml).
+It verifies versions, exact package/source contents, public-build identity and
+checksums, then attaches the already-built files. It does not rebuild them or
+submit a Pebble appstore listing. Safe reruns preserve published tags and assets.
+
+See [the release workflow](docs/GITHUB-RELEASES.md) for preparation and recovery,
+[maintainer notes](AGENTS.md) for repository boundaries, and
+[validation](docs/VALIDATION.md) for the scope of runtime, browser and service
+checks. Published packages stay frozen; later documentation-only changes on
+`main` do not rewrite the 1.0.1 downloads.
+
 ## Build and check
 
 ```sh
@@ -233,9 +256,9 @@ To regenerate the static catalogue, install development-only `pyproj` and run
 
 Weather data: **Český hydrometeorologický ústav (ČHMÚ)** and, when enabled,
 **Open-Meteo**. Public ČHMÚ graph/open-data sources, the derived catalogue and
-Open-Meteo forecasts use CC BY 4.0 attribution. ČHMÚ's current
-[website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti)
-license its published website products under CC BY 4.0. Personal-build app
+Open-Meteo forecasts use CC BY 4.0 attribution. ČHMÚ's
+[website terms](https://www.chmi.cz/vylou%C4%8Den%C3%AD-odpov%C4%9Bdnosti), inspected
+on 31 October 2026, licensed its published website products under CC BY 4.0. Personal-build app
 data is attributed separately to ČHMÚ. Feels-like is a plugin-calculated estimate.
 This project is independent of ČHMÚ, Open-Meteo and Core Devices.
 See [privacy information](PRIVACY.md) and [third-party notices](THIRD_PARTY.md).

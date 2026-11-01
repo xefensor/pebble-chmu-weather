@@ -1,5 +1,21 @@
 # Validation
 
+## GitHub distribution and documentation
+
+The public [v1.0.1 GitHub release](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1)
+uses the already-tested artifact commit `127995bf5612809c6693c0622813198475b37a75`.
+Its public PBW, source/store archives and flat checksum attachment were verified
+against the prepared files. The GitHub release workflow and its **18 automation
+tests** passed; reruns preserve the published asset identities and hashes.
+These are distribution checks, not a new weather-service or physical-device test.
+
+The automation checks public UUID/build markers, excludes personal artifacts,
+rejects generated folders and PBWs inside source ZIPs, and validates source/runtime
+inputs without rebuilding the released package. Documentation-only changes on
+`main` leave the frozen downloads and historical validation below unchanged.
+See [GitHub release instructions](GITHUB-RELEASES.md) and
+[maintainer notes](../AGENTS.md) for future version preparation.
+
 ## 1.0.1 — public and personal builds
 
 - Public builds keep the original plugin UUID and declare only public ČHMÚ
