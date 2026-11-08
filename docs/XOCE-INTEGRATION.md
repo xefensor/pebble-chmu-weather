@@ -39,16 +39,18 @@ source that consumes the selected provider. Direct complication choices can
 also refer to a weather plugin's readings. Native Weather importing does not
 retain every custom provenance field; direct readings retain those properties.
 
-Halftone's existing **Pebble weather** route reads the built-in Weather source;
-its two complication readings can use configured source choices. Dynamic uses
-the configured complication readings. Verify those existing routes rather than
-adding an implicit provider switch or a second weather service.
+The current entry points of both Dynamic and Halftone use Core's complication
+adapter and the first two global Complications choices. Configure ČHMÚ's scalar
+Temperature, High, Low or Precipitation through those existing choices. Both
+faces preserve the selected source's formatted value and units. Their current
+entry points use no independent weather HTTP client or local unit rewrite.
+See [Halftone's weather route](https://github.com/xefensor/halftone-watchface/blob/main/docs/PLUGIN-WEATHER.md).
 
 On a supported phone, install the exact public candidate, grant its declared
 permissions, configure a saved location and choose ČHMÚ as Weather provider.
-Check both Celsius and Fahrenheit, select temperature in each supported face
-reading position, and compare its value/unit with the provider output. Then
-check Halftone's Pebble-weather mode, a denied permission, a missing location,
+Check both Celsius and Fahrenheit, select temperature in both reading positions
+on each face, and compare its value/unit with the provider output and Pebble
+Weather's imported fields. Then check a denied permission, a missing location,
 stale observations, disabled completion, offline reuse and reconnect. Confirm
 that original timestamps survive cache reuse and that consumer fallback follows
 the user's settings. Phone discovery, importer behavior and end-to-end delivery
