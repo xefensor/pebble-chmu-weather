@@ -391,6 +391,9 @@ on every phone or network.
 
 ## Hardware/runtime checks still needed
 
+For the current public candidate's packaged Dynamic/Halftone delivery and
+Emery 4.45.0 rendering, see the [XOCE consumer checkpoint](xoce-consumer-checkpoint.md).
+
 No physical-watch or physical-phone plugin-runtime test is claimed for 0.2.0.
 Verify installation, permission prompts, WebView settings, provider selection,
 unit changes, reconnects and end-to-end delivery on the actual devices. Also
