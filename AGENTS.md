@@ -66,7 +66,7 @@ Use Node.js 20+ and Python 3.10+; GitHub Actions currently uses Node 22.
 ```sh
 npm ci --ignore-scripts
 npm test
-npm run build
+npm run build -- --output build/candidate/CHMU-Weather.pbw
 ```
 
 `npm test` covers JavaScript, Python packaging and release-automation tests.

@@ -23,10 +23,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--variant", choices=("public", "personal"), default="public")
+    parser.add_argument("--pbw", type=Path, help="Exact candidate PBW; default remains the frozen variant artifact")
     args = parser.parse_args()
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     directory = ROOT / ("build/personal" if args.variant == "personal" else "dist")
-    pbw = directory / (artifact_stem(package, variant=args.variant) + ".pbw")
+    pbw = args.pbw.resolve() if args.pbw else directory / (artifact_stem(package, variant=args.variant) + ".pbw")
     script_path = ROOT / ("build/personal/plugin.js" if args.variant == "personal" else "build/plugin.js")
     script = script_path.read_bytes()
     manifest = appinfo_from_package(package, variant=args.variant)

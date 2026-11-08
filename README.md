@@ -23,6 +23,17 @@ remain separate from the downloadable version.
 
 [Settings preview: English/light](docs/images/settings-en-light.png) · [Czech/dark](docs/images/settings-cs-dark.png)
 
+## Compatibility
+
+This phone-only plugin requires a Pebble mobile app with the plugin preview and
+Weather-provider APIs. The [current official plugin guide](https://developer.repebble.com/guides/plugins/preview/)
+describes mobile 1.17.0.1 and supports the preview from 1.16.x. Installation and
+permission behavior still need checking in the actual phone runtime. There is
+no separate watch binary or Pebble SDK requirement for building this plugin.
+Coverage is Czechia; see [feed contracts](docs/FEEDS.md) and the limitations below.
+
+## Setup and use
+
 1. Use a Pebble mobile app supporting the plugin APIs. In 1.16.x, enable
    **Settings → Plugins → Plugins / permissions preview** if required. Labels
    may change between app versions.
@@ -48,7 +59,7 @@ The release includes the source archive, prepared store package and checksums.
 The same checked files remain in [`dist/`](dist/).
 Read the [publishing checklist](store/PUBLISHING.md) before uploading.
 
-## Settings
+### Settings
 
 The settings page follows English/Czech phone language and light/dark appearance.
 **Latest loaded readings** puts current values and station selection first.
@@ -58,7 +69,7 @@ Weather provider selection and coverage. UI text and diagnostics do not redefine
 measurement.
 
 
-## Weather sources
+### Weather sources
 
 | Reading | Source and behavior |
 | --- | --- |
@@ -159,7 +170,7 @@ Settings distinguish stale readings, network failures and places outside
 coverage. They retain the last successful download time and show the station
 measurement's age. A download time does not replace the measurement timestamp.
 
-## Coverage and Pebble limitations
+### Coverage and Pebble limitations
 
 The bundled catalogue covers Czech temperature stations and ALADIN town
 points. A forecast town and measurement station must be within 30 km.
@@ -197,7 +208,7 @@ Weather bridge does not retain every custom property. If a station observation i
 available, direct consumers can still receive the observation; Pebble's native
 provider bridge may reject the incomplete location and use its own fallback.
 
-## Releases and development
+## Development
 
 New packaged versions committed to `main` are checked and published by
 [GitHub Actions](https://github.com/xefensor/pebble-chmu-weather/actions/workflows/release.yml).
@@ -211,19 +222,19 @@ See [the release workflow](docs/GITHUB-RELEASES.md) for preparation and recovery
 checks. Published packages stay frozen; later documentation-only changes on
 `main` do not rewrite the 1.0.1 downloads.
 
-## Build and check
+### Build and check
 
 ```sh
-npm ci
+npm ci --ignore-scripts
 npm test
-npm run build
-npm run smoke
+npm run build -- --output build/candidate/CHMU-Weather.pbw
+python3 scripts/smoke.py --pbw build/candidate/CHMU-Weather.pbw
 ```
 
 Node.js 20+ and Python 3.10+ are needed; the Pebble SDK is not required for this
 phone-only PBW. The pinned esbuild release bundles JavaScript. Packaging is
 deterministic and includes permission metadata and license notices.
-The smoke command makes real weather requests. See [validation status](docs/VALIDATION.md).
+The explicit candidate output preserves frozen releases. The smoke command makes real public weather requests against those exact bytes. See [CONTRIBUTING](CONTRIBUTING.md), [validation status](docs/VALIDATION.md) and [XOCE integration checks](docs/XOCE-INTEGRATION.md).
 
 ### Personal build
 
@@ -252,7 +263,7 @@ is not treated as permission for that separate service.
 To regenerate the static catalogue, install development-only `pyproj` and run
 `python3 scripts/update-catalog.py`. See [feed details](docs/FEEDS.md).
 
-## Data, privacy and license
+## Licence
 
 Weather data: **Český hydrometeorologický ústav (ČHMÚ)** and, when enabled,
 **Open-Meteo**. Public ČHMÚ graph/open-data sources, the derived catalogue and
