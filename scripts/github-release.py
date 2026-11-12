@@ -217,7 +217,7 @@ def prepare(root, config_path, output, trigger_commit=None):
             len({PurePosixPath(path).name for path in paths}) == len(paths), "Duplicate release assets")
     require(all(re.fullmatch(r"[A-Za-z0-9_.-]+", PurePosixPath(path).name) for path in paths),
             "Unsafe asset basename")
-    checksums_path = safe_path(config["checksums_file"])
+    checksums_path = expand(config["checksums_file"], package)
     expected = checksum_map(committed(root, commit, checksums_path), paths, checksums_path)
     current = checksum_map(committed(root, trigger, checksums_path), paths, checksums_path)
     assets = {}

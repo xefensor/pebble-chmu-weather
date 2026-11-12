@@ -283,6 +283,15 @@ class ReleaseTests(unittest.TestCase):
             release.publish(self.root, self.out, github)
         self.assertEqual(github.writes, [])
 
+
+    def test_versioned_checksum_path_is_expanded_before_reading(self):
+        self.write('releases/SHA256SUMS-1.2.3.txt',(self.root/'releases/SHA256SUMS.txt').read_bytes())
+        self.config['checksums_file']='releases/SHA256SUMS-{version}.txt'
+        self.config.pop('bootstrap',None)
+        self.config_path.write_text(json.dumps(self.config))
+        self.commit()
+        self.assertEqual(self.prepared()['version'],'1.2.3')
+
     def test_only_http404_is_treated_as_missing(self):
         github = release.GitHub("owner/fixture")
         with patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"", b"gh: Not Found (HTTP 404)")):
