@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "kind": "Unchanged original generic weather artwork, not an official provider logo",
+  "source": "icon-source.svg",
+  "renderer": "Historical Chromium 138; existing PNG bytes retained",
+  "files": {
+    "icon-source.svg": "e1539c1775a648c1c4a806eef3dcc7d8fd24a07643ef09579f9561ae85071902",
+    "icon-small-80.png": "478fe28ae35c199e3aa9ac65e87af31a4f2f2dfd219efc211202f51283cf30e0",
+    "icon-large-144.png": "f0fde8a6c64cd1b5238e920ab84621aa350f6749b7c60714bf3fd360c4b0a62a"
+  }
+}

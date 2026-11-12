@@ -71,7 +71,9 @@ class PackageTests(unittest.TestCase):
         public = BUILD.appinfo_from_package(source)
         personal = BUILD.appinfo_from_package(source, 'personal')
         self.assertNotIn('chmu.rails.cz', public['usesPermissions'][1]['parameters']['domains'])
-        self.assertIn('chmu.rails.cz', personal['usesPermissions'][1]['parameters']['domains'])
+        internet = [p for p in personal['usesPermissions'] if isinstance(p, dict) and p.get('name') == 'Internet']
+        self.assertEqual(sum('chmu.rails.cz' in p['parameters']['domains'] for p in internet), 1)
+        self.assertFalse(internet[-1]['required'])
         self.assertEqual(public['uuid'], source['pebble']['uuid'])
         self.assertNotEqual(personal['uuid'], public['uuid'])
         self.assertEqual(personal['displayName'], 'ČHMÚ Weather Personal')

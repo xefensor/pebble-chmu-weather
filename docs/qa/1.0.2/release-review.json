@@ -1,0 +1,24 @@
+{
+  "product": "ČHMÚ Weather",
+  "version": "1.0.2",
+  "pbwSha256": "09a9bc6e11368a9bf536eebc4bbe644b15945cd71f27c0c02e255be9c3153039",
+  "targets": [],
+  "automated": [
+    "npm test PASS (pinned Node/Python)",
+    "Public plugin packaging and permission guards PASS",
+    "Public identity/domain/notices audit PASS",
+    "Store prepare/check PASS",
+    "npm audit: zero known vulnerabilities"
+  ],
+  "emulatorAndLiveScope": "Exact public PBW live smoke passed against all three declared public hosts (HTTP 200), with zero private-backend requests and zero request-safety failures. Public/private packaging and cache/expiry/permissions regressions pass. Personal Weather was not exercised or included in public release files.",
+  "physicalWatchTested": false,
+  "physicalPhoneTested": false,
+  "remoteCiRun": false,
+  "published": false,
+  "remainingPublicationGates": [
+    "Physical Time 2 and current Android Pebble app checks (Round 2 is emulator-only)",
+    "Verify Developer Dashboard listing ownership, UUID and unused version",
+    "Publish and verify proposed privacy/support URLs",
+    "Explicit final publication approval"
+  ]
+}

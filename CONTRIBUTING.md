@@ -50,3 +50,14 @@ Use local commits for review. Follow [the release workflow](docs/GITHUB-RELEASES
 only when publication is authorized: a push to `main` can publish automatically.
 Do not overwrite frozen 1.0.1 artifacts, bump a version for routine edits, or
 treat a local candidate as a published release.
+
+## Freeze a reviewed Store candidate
+
+After current source, artifact, configuration and Store checks pass, run
+`python3 scripts/freeze-release.py` to copy the exact checked PBW, debug and Store
+kit bytes and make the standalone source ZIP. It refuses an existing version
+and writes `releases/SHA256SUMS-VERSION.txt`; old root checksums and artifacts
+remain untouched. Commit these files locally, then run `npm run release:prepare`
+to validate committed HEAD. No build, tag, upload or publication happens during
+freezing or preparation. The current candidate's physical-device and account
+gates remain in `docs/RELEASE-READINESS.md`.

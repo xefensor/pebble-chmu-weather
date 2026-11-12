@@ -12,7 +12,7 @@ assert.equal(process.env.CHMU_SMOKE_VARIANT,'public',
   'Use python3 scripts/smoke.py to validate the exact public PBW');
 const manifest = JSON.parse(process.env.CHMU_SMOKE_MANIFEST);
 const allowed = ['data-provider.chmi.cz','opendata.chmi.cz','api.open-meteo.com'].sort();
-const declared = manifest.usesPermissions.find(p => p && p.name === 'Internet').parameters.domains;
+const declared = manifest.usesPermissions.filter(p => p && p.name === 'Internet').flatMap(p => p.parameters.domains);
 assert.deepEqual([...declared].sort(),allowed,'Public transport must match the three manifest domains');
 const script = fs.readFileSync(process.env.CHMU_SMOKE_SCRIPT_PATH);
 const digest = crypto.createHash('sha256').update(script).digest('hex');

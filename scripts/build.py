@@ -68,9 +68,10 @@ def appinfo_from_package(package, variant="public"):
         if isinstance(permission, dict) and permission.get("name") == "Internet":
             domains = permission.setdefault("parameters", {}).setdefault("domains", [])
             permission["parameters"]["domains"] = [d for d in domains if d != APP_DOMAIN]
-            if variant == "personal":
-                permission["parameters"]["domains"].append(APP_DOMAIN)
     if variant == "personal":
+        permissions.append({"name": "Internet", "parameters": {"domains": [APP_DOMAIN]},
+                            "reason": "To request the personal weather services you enable",
+                            "required": False})
         appinfo["uuid"] = str(uuid.uuid5(parsed_uuid, "personal-build"))
         display += " Personal"
         appinfo["displayName"] = display

@@ -5,14 +5,14 @@
   "tag_prefix": "v",
   "prerelease": false,
   "assets": [
-    "dist/CHMU-Weather-{release_id}.pbw",
-    "dist/CHMU-Weather-{release_id}-source.zip",
-    "dist/CHMU-Weather-{release_id}-store-package.zip"
+    "releases/CHMU-Weather-{version}.pbw",
+    "releases/CHMU-Weather-{version}-source.zip",
+    "releases/CHMU-Weather-{version}-store-package.zip"
   ],
-  "checksums_file": "dist/SHA256SUMS",
+  "checksums_file": "releases/SHA256SUMS-{version}.txt",
   "app_uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
   "source_archive": {
-    "path": "dist/CHMU-Weather-{release_id}-source.zip",
+    "path": "releases/CHMU-Weather-{version}-source.zip",
     "prefix": ""
   },
   "notes": {

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "name": "ČHMÚ Weather",
+  "author": "Xef",
+  "version": "1.0.2",
+  "uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
+  "type": "plugin",
+  "category": "weather",
+  "price": "free",
+  "target_platforms": [],
+  "description_file": "description.txt",
+  "release_notes_file": "release-notes.txt",
+  "source_url": "https://github.com/xefensor/pebble-chmu-weather",
+  "support_url": "https://github.com/xefensor/pebble-chmu-weather/issues",
+  "privacy_url": "https://github.com/xefensor/pebble-chmu-weather/blob/main/PRIVACY.md",
+  "icons": [
+    "icon-small-80.png",
+    "icon-large-144.png"
+  ],
+  "publication_status": "preparation",
+  "store_submission_allowed": false,
+  "publication_rule_url": "https://developer.repebble.com/guides/plugins/publishing-plugins/",
+  "publication_rule_checked_on": "2026-11-12",
+  "remaining_publication_gates": [
+    "Physical Time 2 and current Android Pebble app checks (Round 2 is emulator-only)",
+    "Verify Developer Dashboard listing ownership, UUID and unused version",
+    "Publish and verify proposed privacy/support URLs",
+    "Explicit final publication approval"
+  ],
+  "artifact_stem": "CHMU-Weather"
+}

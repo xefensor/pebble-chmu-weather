@@ -26,7 +26,7 @@ const AUTH_KEY = 'chmu.app.auth.v1';
 const ID_KEY = 'chmu.app.install.v1';
 const POINT = catalog.forecastPlaces.find(p => String(p.id) === '75');
 const ALLOWED = ['data-provider.chmi.cz','opendata.chmi.cz',OM,APP].sort();
-const declared = manifest.usesPermissions.find(p => p && p.name === 'Internet').parameters.domains;
+const declared = manifest.usesPermissions.filter(p => p && p.name === 'Internet').flatMap(p => p.parameters.domains);
 assert.deepEqual([...declared].sort(), ALLOWED, 'The transport must match the four manifest domains');
 assert.ok(POINT, 'The live check requires the bundled České Budějovice forecast point');
 

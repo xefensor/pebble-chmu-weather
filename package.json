@@ -1,6 +1,6 @@
 {
   "name": "pebble-chmu-weather",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
   "author": "Xef",
   "license": "SEE LICENSE IN LICENSE",
@@ -8,10 +8,13 @@
   "scripts": {
     "build:js": "node scripts/build-js.js",
     "build": "python3 scripts/build.py",
-    "test": "node --test test/*.test.js && python3 -m unittest discover -s tests",
+    "test": "node --test test/*.test.js && python3 -m unittest discover -s tests && npm run test:store",
     "smoke": "python3 scripts/smoke.py",
     "build:personal": "python3 scripts/build.py --variant personal",
-    "smoke:personal": "python3 scripts/smoke.py --variant personal"
+    "smoke:personal": "python3 scripts/smoke.py --variant personal",
+    "store:prepare": "python3 scripts/store-kit.py",
+    "store:check": "python3 scripts/store-kit.py --check",
+    "test:store": "python3 -m unittest discover -s tests -p test_store_kit.py"
   },
   "dependencies": {
     "suncalc": "1.9.0"
@@ -26,16 +29,40 @@
     "sdkVersion": "3",
     "configPage": "config.html",
     "usesPermissions": [
-      "Location",
+      {
+        "name": "Location",
+        "reason": "To get weather for your current location; saved locations work without GPS",
+        "required": false
+      },
       {
         "name": "Internet",
         "parameters": {
           "domains": [
-            "data-provider.chmi.cz",
-            "opendata.chmi.cz",
+            "data-provider.chmi.cz"
+          ]
+        },
+        "reason": "To get public ČHMÚ measurements and forecasts",
+        "required": true
+      },
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
+            "opendata.chmi.cz"
+          ]
+        },
+        "reason": "To check backup public ČHMÚ observations",
+        "required": false
+      },
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
             "api.open-meteo.com"
           ]
-        }
+        },
+        "reason": "To fill optional forecast fields and forecast UV",
+        "required": false
       }
     ],
     "plugin": {
