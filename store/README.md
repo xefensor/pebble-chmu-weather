@@ -1,25 +1,11 @@
-# ČHMÚ Weather 1.0.3 — current Store preparation
+# ČHMÚ Weather 1.0.3 — Store artwork
 
-The active listing is `listing.json`. Descriptions and release notes are plain
-text; native screenshots and banner filenames are listed per platform. Upload
-standalone native PNGs as screenshots and the 720×320 family PNG as each platform’s
-banner. SVGs, product marks, provenance and licence files are editable/review
-material, not extra screenshots.
+The banners follow Xef’s original Halftone composition: a bold product colour, curved patterned edge, large title and illustrated watch. The native screenshot bytes are embedded unchanged; standalone Store screenshots remain raw and unframed. The original Halftone banner and all frozen release archives remain intact.
 
-Upload the 80×80 and 144×144 icons. This is a phone-only plugin: no watch screenshots or Store banners.
+Store icons are black, single-colour glyphs on a transparent background, with binary alpha and no baked-in tile, gradient or shadow. Upload `icon-small-80.png` and `icon-large-144.png`, then enable the listing’s tintable-icon setting so the public API reports `icon_tintable: true`. This is what lets Store clients recolour the same glyph for light and dark mode; separate dark/light uploads are not needed. The exact signed-in checkbox wording is not assumed.
 
-The approved tactile family uses cool silver, graphite, blue controls and Fira
-text outlines. Banners composite unchanged native captures with the official Core
-Devices frames. Standalone screenshots remain unframed. Artwork/font/frame credits
-are in `ARTWORK-LICENSES.txt`; native app UI, UUID and version are unchanged.
+This is a phone plugin. It has no Store watch screenshot or banner; the Weather marketing banner is website-only.
 
-Prepare/check a kit with `python3 scripts/store-kit.py --pbw /path/to/checked.pbw`
-and the same command with `--check`. Outputs stay under ignored `build/store/`.
-The current artwork-only review is `Watch/XOCE-Identity-2026-11-14/`.
-The previous full review `Watch/Store-Update-2026-11-14/` remains unchanged.
-Keep old `dist/`, `releases/` and prior review bundles unchanged.
+`listing.json` and the upload map select the files. The review folder is `Watch/Pebble-Store-Artwork-2026-11-14/`; it includes the original reference, light/dark proofs and pixel checks. `ARTWORK-LICENSES.txt` preserves the font and original illustration credits. This listing-artwork change does not alter the PBW, app version or watch launcher resources.
 
-This preparation does not upload, publish or deploy anything. Existing review
-acceptance is retained; emulator/browser checks do not establish physical phone
-or watch testing. Verify the Dashboard listing/ownership and exact public
-release bytes before activating website installation links.
+Sources: https://appstore-api.repebble.com/ and https://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/

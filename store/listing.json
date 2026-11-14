@@ -35,5 +35,6 @@
     "reviewer": "Xef",
     "decision": "Reviewed implementation accepted for stable public release preparation; no further physical-device review prerequisite.",
     "test_coverage": "Physical watch/phone results are not claimed; see the current release review for actual evidence."
-  }
+  },
+  "icon_tintable": true
 }
