@@ -18,3 +18,5 @@ Pokrytí je omezené na Česko. Stanice neměří přímo ve vaší ulici. UV je
 Vyžaduje Pebble s povoleným náhledem pluginů. Používá veřejné webové produkty a otevřená data ČHMÚ a volitelně Open-Meteo. Veřejná verze nepřistupuje k autentizované službě mobilní aplikace ČHMÚ. Bez osobního účtu, reklam, analytiky a serveru vývojáře. Projekt není spojen s ČHMÚ, Open-Meteo ani Core Devices.
 
 Zdroj a soukromí: https://github.com/xefensor/pebble-chmu-weather
+
+ČHMÚ Weather poskytuje údaje o počasí pro Pebble Weather a kompatibilní aplikace. Jeho údaje se vybírají odděleně od aktivit. Aktivita je průběžná informace, například odpočet Timer zobrazený na Dynamic nebo Halftone.

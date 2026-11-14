@@ -10,6 +10,10 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
+## Weather readings and Activities
+
+ČHMÚ Weather supplies weather readings for Pebble Weather and compatible apps. Choose its readings separately from Activities. An activity is an ongoing update, such as a Timer countdown shown on Dynamic or Halftone. This plugin supplies weather rather than publishing Timer-style activities. Configure it as a weather provider or choose its readings in Pebble’s Complications settings.
+
 ## Download and install 1.0.1
 
 The public **[GitHub release v1.0.1](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1)** is available now:

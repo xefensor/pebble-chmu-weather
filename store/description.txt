@@ -18,3 +18,5 @@ Czech coverage only; nearby stations do not measure your exact street. UV is a f
 Requires a preview-enabled Pebble mobile app. Uses public ČHMÚ website/open-data products and optional Open-Meteo; the public release does not access ČHMÚ's authenticated mobile-app service. No personal account, ads, analytics or developer-operated server. Independent of ČHMÚ, Open-Meteo and Core Devices.
 
 Source and privacy: https://github.com/xefensor/pebble-chmu-weather
+
+ČHMÚ Weather supplies weather readings for Pebble Weather and compatible apps. Choose its readings separately from Activities. An activity is an ongoing update, such as a Timer countdown shown on Dynamic or Halftone.
