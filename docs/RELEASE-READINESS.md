@@ -41,3 +41,8 @@ Exact public PBW live smoke passed against all three declared public hosts (HTTP
 
 Exact package identity, checks and remaining gates are recorded in
 [the versioned review](qa/1.0.2/release-review.json).
+
+
+## Store update — 1.0.3 (2026-11-14)
+
+Xef requested a new numeric version for the reviewed current implementation and Store handoff. Public Store history already contains 1.0.2; 1.0.3 was absent from the checked public Store history and GitHub tags. The public UUID, saved-state compatibility, pinned dependencies and reviewed native interfaces are retained. New source/artifact/Store verification is recorded with this release preparation; prior emulator captures are reused only after native renderer/resource equality is verified. No new physical-device result is claimed. GitHub branch pushes are authorized; app submission and website deployment remain separate.

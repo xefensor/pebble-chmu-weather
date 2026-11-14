@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3 — 2026-11-14
+
+- Package the current reviewed implementation and updated Store assets under a new numeric version, preserving the public UUID and saved settings.
+- Earlier released binaries and archives remain unchanged.
+
 ## 1.0.1
 
 - Makes the default public build exclude the authenticated ČHMÚ app backend,

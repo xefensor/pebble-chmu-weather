@@ -1,4 +1,4 @@
-ČHMÚ Weather 1.0.2
+ČHMÚ Weather 1.0.3
 
 Publishing preparation for the public, phone-only weather plugin, including current permission descriptions. The public UUID, provider domains, units and original observation/forecast times remain unchanged.
 

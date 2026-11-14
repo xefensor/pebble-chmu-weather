@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "ČHMÚ Weather",
   "author": "Xef",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
   "type": "plugin",
   "category": "weather",
@@ -22,7 +22,7 @@
   "publication_rule_url": "https://developer.repebble.com/guides/plugins/publishing-plugins/",
   "publication_rule_checked_on": "2026-11-12",
   "remaining_publication_gates": [
-    "Verify Developer Dashboard ownership, existing listing and unused numeric version",
+    "Verify Developer Dashboard ownership, existing listing and availability of the new numeric version",
     "Verify live app-owned support/privacy URLs",
     "Publish exact checked GitHub and Store artifacts, then activate website links"
   ],

@@ -10,6 +10,10 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
+## Store update 1.0.3
+
+Current source prepares ČHMÚ Weather 1.0.3 for the reviewed Store update. The new numeric version supersedes the existing public 1.0.2 binary without changing the public UUID. Its exact PBW, Store package, source and checksums are under `releases/`; earlier artifacts remain unchanged.
+
 ## Weather readings and Activities
 
 ČHMÚ Weather supplies weather readings for Pebble Weather and compatible apps. Choose its readings separately from Activities. An activity is an ongoing update, such as a Timer countdown shown on Dynamic or Halftone. This plugin supplies weather rather than publishing Timer-style activities. Configure it as a weather provider or choose its readings in Pebble’s Complications settings.
