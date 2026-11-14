@@ -1,18 +1,18 @@
-Neoficiální české počasí pro Pebble: měření z blízkých stanic a místní předpovědi ALADIN od ČHMÚ.
+Česká měření ze stanic a místní předpovědi ALADIN pro Pebble.
 
-ČHMÚ Weather běží v mobilní aplikaci Pebble. Vyberte ho jako poskytovatele počasí pro systémové Počasí, časovou osu a podporované údaje v aplikacích Dynamic, Halftone nebo Dashboard. Používá místa a jednotky uložené v Pebble.
+ČHMÚ Weather je neoficiální plugin počasí, který běží v mobilní aplikaci Pebble. Vyberte ho jako poskytovatele počasí pro systémové Počasí, časovou osu a podporované údaje v aplikacích Dynamic, Halftone, Dashboard a dalších.
 
+- Použijte místa a jednotky uložené v Pebble.
 - Nechte automaticky vybrat blízkou stanici, nebo zvolte pevnou českou stanici.
-- Zobrazte aktuální teplotu, vlhkost a vítr, pokud je stanice hlásí společně.
-- Sledujte hodinové a denní předpovědi ALADIN s původními časy a uvedením zdroje.
-- Volitelně doplňte pravděpodobnost srážek, chybějící údaje, předpověď UV a další dny pomocí Open-Meteo.
-- Využijte vypočítanou pocitovou teplotu a časy východu a západu slunce.
-- Nastavte plugin česky nebo anglicky, ve světlém či tmavém vzhledu a s přehlednou diagnostikou.
+- Zobrazte teplotu ze stanice a dostupná měření vlhkosti a větru.
+- Sledujte hodinové a denní předpovědi ALADIN.
+- Doplňte chybějící předpovědní údaje, pravděpodobnost srážek, předpověď UV a další dny pomocí Open-Meteo. Doplňování je ve výchozím nastavení zapnuté a lze ho vypnout.
+- Nastavte plugin česky nebo anglicky.
 
-Pokrytí je omezené na Česko. Blízká stanice neměří přímo ve vaší ulici. UV je předpověď a aktualizaci systémového Počasí řídí Pebble. Údaje v mezipaměti si zachovávají původní stáří.
+Pokrývá české lokality. Měření z blízké stanice se může lišit od podmínek přímo u vás. Údaje v mezipaměti si zachovávají původní stáří; aktualizaci systémového Počasí řídí Pebble.
 
-Vyžaduje internet a podporu pluginů v oficiální mobilní aplikaci Pebble. Údaje o počasí se nastavují odděleně od aktivit, například odpočtu Timer. Plugin nemá aplikaci, kterou byste otevírali v hodinkách.
+Vyžaduje internet a zapnutou podporu pluginů v oficiální mobilní aplikaci Pebble. Běží v telefonu a nemá vlastní aplikaci k otevření v hodinkách.
 
-Zdarma. Bez osobního účtu, API klíče, reklam, analytiky a serveru vývojáře. Používá veřejná data ČHMÚ a volitelně Open-Meteo. Projekt není spojen s ČHMÚ, Open-Meteo ani Core Devices.
+Zdarma. Součást XOCE. Bez dalšího účtu, API klíče, reklam, analytiky a serveru vývojáře. Požadavky směřují k ČHMÚ a při zapnutém doplňování také k Open-Meteo. Projekt není spojen s ČHMÚ, Open-Meteo ani Core Devices.
 
 Zdroj a soukromí: https://github.com/xefensor/pebble-chmu-weather

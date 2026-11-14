@@ -1,0 +1,12 @@
+{
+  "result": "PASS",
+  "version": "1.0.3",
+  "previousVersion": "1.0.2",
+  "pbwSha256": "6f4ec6d3a426763ad81529faaf00e3bbea066b4a40d4d425d1885552506413e6",
+  "previousPbwSha256": "361bb5addbf68794ef17ccb24f3eb648a9e791fc43409734fdc547e56a7aca01",
+  "platforms": {},
+  "uuidUnchanged": true,
+  "nativeRendererResourcesUnchanged": false,
+  "pluginRuntimeAndSettingsUnchanged": true,
+  "scope": "Fresh SDK/public builds. Existing strict renderer identity ignores SDK timestamp, build ID and its derived CRC only; code, native version bytes, UUID and resources remain covered. Plugin/settings compare byte-for-byte except the exact embedded version string. Original captures reused without pixel changes; no fresh emulator or physical-device claim."
+}

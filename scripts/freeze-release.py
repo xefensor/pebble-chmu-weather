@@ -34,7 +34,7 @@ def freeze(root):
     excluded={'build','dist','releases','node_modules','.git','.pebble','.venv','.build-tools'}
     for name in sorted(set(names)-{''}):
         path=Path(name);source=root/path
-        if path.parts[0] in excluded or '__pycache__' in path.parts or path.suffix.lower() in ('.pbw','.pyc'):continue
+        if name == 'dist.zip' or path.parts[0] in excluded or '__pycache__' in path.parts or path.suffix.lower() in ('.pbw','.pyc'):continue
         if path.parts[:2]==('docs','qa') and path.suffix.lower() in ('.png','.gif'):continue
         if source.is_symlink():raise ValueError('Source archive refuses symlinks: '+name)
         if source.is_file():sources[name]=source.read_bytes()

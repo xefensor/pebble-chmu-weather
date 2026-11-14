@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+
+- Clearer distinction between saving settings and refreshing weather.
+- Station and source changes retain location context without showing old readings while waiting.
+- Improved keyboard focus and guidance for forecast UV settings.
+- Shorter help, with provider behaviour and permissions unchanged.
+
 ## 1.0.3 — 2026-11-14
 
 - Package the current reviewed implementation and updated Store assets under a new numeric version, preserving the public UUID and saved settings.

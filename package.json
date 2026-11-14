@@ -1,6 +1,6 @@
 {
   "name": "pebble-chmu-weather",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "ČHMÚ station observations and ALADIN forecasts for Pebble",
   "author": "Xef",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,7 +20,8 @@
     "suncalc": "1.9.0"
   },
   "devDependencies": {
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "jsdom": "26.1.0"
   },
   "pebble": {
     "projectType": "plugin",

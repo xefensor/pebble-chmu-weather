@@ -1,0 +1,4 @@
+- Jasnější rozdíl mezi uložením nastavení a obnovením počasí.
+- Při změně stanice nebo zdroje zůstane vidět místo, ale ne staré naměřené hodnoty.
+- Lepší ovládání klávesnicí a vysvětlení nastavení předpovědi UV.
+- Stručnější nápověda; chování poskytovatelů a oprávnění se nemění.

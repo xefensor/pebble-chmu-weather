@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "ČHMÚ Weather",
   "author": "Xef",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
   "type": "plugin",
   "category": "weather",
@@ -20,7 +20,7 @@
   "publication_status": "preparation",
   "store_submission_allowed": false,
   "publication_rule_url": "https://developer.repebble.com/guides/plugins/publishing-plugins/",
-  "publication_rule_checked_on": "2026-11-12",
+  "publication_rule_checked_on": "2026-11-14",
   "remaining_publication_gates": [
     "Verify Developer Dashboard ownership, existing listing and availability of the new numeric version",
     "Verify live app-owned support/privacy URLs",
@@ -36,5 +36,11 @@
     "decision": "Reviewed implementation accepted for stable public release preparation; no further physical-device review prerequisite.",
     "test_coverage": "Physical watch/phone results are not claimed; see the current release review for actual evidence."
   },
-  "icon_tintable": true
+  "icon_tintable": true,
+  "store_submission_scope": "Local release-preparation gate retained from the input package; this flag is not a claim that Pebble prohibits publication. Developer account access and release availability were not checked in this presentation refresh.",
+  "publication_guidance_note": "The current publishing guide documents New Plugin dashboard submission and specifies no plugin screenshots. This refresh does not verify the account dashboard.",
+  "website_url": "https://xefensor.github.io/xoce/projects/chmu-weather/",
+  "additional_release_notes_files": [
+    "release-notes-cs.txt"
+  ]
 }

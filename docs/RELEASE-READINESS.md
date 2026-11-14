@@ -1,3 +1,7 @@
+# Release 1.0.4 · 2026-11-14
+
+The final source tests, fresh builds, package checks and native emulator scope are recorded in [current validation](qa/release-1.0.4/validation.json). Historical galleries keep their capture versions and have explicit final-binary reuse proof. Physical phone/watch and live-provider results are not claimed. Xef authorized stable GitHub publication and retained the existing review acceptance; no new device approval gate applies. Pebble Store submission remains manual and unsubmitted.
+
 # Local Store release candidate — 2026-11-12
 
 This version is prepared for review and sideload testing. It has not been

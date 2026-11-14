@@ -1,7 +1,4 @@
-ČHMÚ Weather 1.0.3
-
-Publishing preparation for the public, phone-only weather plugin, including current permission descriptions. The public UUID, provider domains, units and original observation/forecast times remain unchanged.
-
-Choose nearby or fixed Czech stations, local ALADIN forecasts and optional Open-Meteo completion in English or Czech settings. No personal backend or account is used by the public plugin.
-
-This is a weather source, separate from Activities such as Timer countdowns. There is no watch app to open.
+- Clearer distinction between saving settings and refreshing weather.
+- Station and source changes retain location context without showing old readings while waiting.
+- Improved keyboard focus and guidance for forecast UV settings.
+- Shorter help, with provider behaviour and permissions unchanged.

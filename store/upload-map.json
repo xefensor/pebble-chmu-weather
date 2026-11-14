@@ -1,0 +1,34 @@
+{
+  "product": "ČHMÚ Weather",
+  "version": "1.0.4",
+  "uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
+  "type": "plugin",
+  "pbw": "CHMU-Weather-1.0.4.pbw",
+  "pbwSha256": "6c57e1191d470cd720e4989b5b1c677747c00fab267c60601f0bc24af8d9af5b",
+  "runtimeSourceCommit": null,
+  "storeSourceCommit": null,
+  "publicStoreVersionCheckedOn20261114": "1.0.3",
+  "binaryAction": "New Release: upload the exact final GitHub PBW after publication",
+  "description": "description.txt",
+  "releaseNotes": "release-notes.txt",
+  "screenshotsInUploadOrder": {},
+  "platformBanners": {},
+  "storeIcons": [
+    "icon-small-80.png",
+    "icon-large-144.png"
+  ],
+  "icon_tintable": true,
+  "storeUrl": "https://apps.repebble.com/ef7111ffaeaf4593aaaa85ed",
+  "githubBranch": null,
+  "runtimeSourceUrl": null,
+  "storeSourceUrl": null,
+  "checks": "Fresh final build and exact package/platform audits; historical gallery reuse has explicit proof. No Store submission or physical-device claim.",
+  "artworkRefresh": "XOCE individual product identities, 2026-11-14; artwork-only refresh, supplied native screens and PBW retained.",
+  "iconRefresh": "Black transparent 25px native launcher integrated for native products; Store icon assets are separate.",
+  "descriptionRefresh": "Benefit-first plain-text copy reviewed against supplied implementation and current Pebble guidance, 2026-11-14; no runtime or release identity changes.",
+  "descriptionHashes": {
+    "description.txt": "72008055f7632aaf714b71dc809fd6fb3b7aa986dd4f03b738fa90db054a71b1",
+    "description-cs.txt": "a5df519720cdffb99d0fde20690222f4f55200e1e4de45b16eb707f9e585f266"
+  },
+  "sourceCommitRecord": "../docs/qa/release-1.0.4/source-commit.json"
+}

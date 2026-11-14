@@ -1,23 +1,35 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "originalArtwork": true,
-  "family": "XOCE Pebble glyphs 2026-11-14",
-  "icon_tintable": true,
-  "ink": "#000000",
+  "family": "XOCE optical icon family 2026-11-14",
   "background": "transparent",
+  "ink": "#000000",
   "alphaValues": [
     0,
     255
   ],
-  "pixelGrid": [
-    16,
-    16
+  "storeIconSizes": [
+    80,
+    144
   ],
-  "format": "8-bit RGBA PNG containing a single-colour binary glyph; no antialiasing, gradients, shadows or background plate.",
-  "source": "https://appstore-api.repebble.com/#changelog",
+  "storeIconFieldsApply": true,
+  "icon_tintable": true,
+  "format": "Store PNGs use a single black glyph with binary alpha. Website SVGs use the same silhouette and render smoothly at small UI sizes.",
+  "source": "artwork/generate-icons.py",
   "files": {
-    "icon-source.svg": "f0e650bf6012b022bfabcbb818854547c1e9438c7020b2ec85fa105170e501d7",
-    "icon-small-80.png": "303853fe7dc357fd45d9f72faf2753a1b6a2d3cea0b3323957d4ec0a4438ec01",
-    "icon-large-144.png": "41da32ba409c1761f8a1da065e9d2d8761275a97425f4611ae89bb8a407a1b1d"
-  }
+    "product-mark.svg": "06a4929afbf559b428ec0254ccf15b0062395ae32eed7a2d01f226cd686e4a59",
+    "product-mark-144.png": "96daca521fb99239f3caf9f41bb251ba4f3c17c757c300fffec3214f026408c6",
+    "icon-source.svg": "06a4929afbf559b428ec0254ccf15b0062395ae32eed7a2d01f226cd686e4a59",
+    "icon-small-80.png": "05bce216e370e778f8c6c82032a72278f0926b1e9a7c8b0bbaca0cb53230f132",
+    "icon-large-144.png": "96daca521fb99239f3caf9f41bb251ba4f3c17c757c300fffec3214f026408c6"
+  },
+  "launcherCandidates": {},
+  "launcherIntegrated": false,
+  "launcherIntegration": null,
+  "launcherNote": "25px launcher exports are separate assets. Color platforms do not auto-invert them. Choose the correct foreground for the launcher and rebuild before distribution.",
+  "rules": [
+    "https://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/",
+    "https://appstore-api.repebble.com/#changelog",
+    "https://developer.repebble.com/guides/app-resources/images/#menu-icon-in-the-launcher"
+  ]
 }

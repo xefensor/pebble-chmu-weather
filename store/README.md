@@ -1,11 +1,13 @@
-# ČHMÚ Weather 1.0.3 — Store artwork
+# ČHMÚ Weather — XOCE Store artwork
 
-The banners follow Xef’s original Halftone composition: a bold product colour, curved patterned edge, large title and illustrated watch. The native screenshot bytes are embedded unchanged; standalone Store screenshots remain raw and unframed. The original Halftone banner and all frozen release archives remain intact.
+Weather bands identify a phone weather provider. The promotional image belongs to the website; plugins have no Store screenshot set or watch banner fields.
 
-Store icons are black, single-colour glyphs on a transparent background, with binary alpha and no baked-in tile, gradient or shadow. Upload `icon-small-80.png` and `icon-large-144.png`, then enable the listing’s tintable-icon setting so the public API reports `icon_tintable: true`. This is what lets Store clients recolour the same glyph for light and dark mode; separate dark/light uploads are not needed. The exact signed-in checkbox wording is not assumed.
+The XOCE family shares Fira typography, graphite and silver device treatment, clear margins and a small wordmark. Each product has its own composition and meaningful geometry. There is no requirement to reuse Halftone’s divider or tile miniature app icons across every banner.
 
-This is a phone plugin. It has no Store watch screenshot or banner; the Weather marketing banner is website-only.
+The website-only export is `website-banner.png`, with an editable SVG source. It must not be uploaded as a plugin screenshot or watch banner. `listing.json` and the package’s `upload-map.json` identify the current upload files. For ČHMÚ, the plugin map intentionally has no screenshots or platform banners.
 
-`listing.json` and the upload map select the files. The review folder is `Watch/Pebble-Store-Artwork-2026-11-14/`; it includes the original reference, light/dark proofs and pixel checks. `ARTWORK-LICENSES.txt` preserves the font and original illustration credits. This listing-artwork change does not alter the PBW, app version or watch launcher resources.
+Store and website glyphs now use the refreshed XOCE geometric family. Separate 25px launcher candidates are included under artwork/icons; the runtime launcher mappings and PBWs remain unchanged. Watchapp Store icons are 80×80 and 144×144; the tintable flag is for clients that recolour a transparent glyph. Watchface website marks are not watchapp icon uploads.
 
-Sources: https://appstore-api.repebble.com/ and https://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/
+The review package’s `artwork/README.md` documents explicit hero selections, generator dependencies, regeneration and Pebble references. `ARTWORK-LICENSES.txt` retains font and illustration credits. The presentation refresh does not change the app version, native display pixels, runtime source or release PBW.
+
+Icon export and integration details are documented in the review package’s `artwork/ICONS.md`. Store uploads use PNG; the website uses the SVG mark at its actual UI size.

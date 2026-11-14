@@ -93,7 +93,7 @@ def payload(root,pbw):
                     entries[name]=data
             entries['capture-provenance.json']=(store/'capture-provenance.json').read_bytes()
     entries.update(banner_payload(store,listing,targets))
-    for name in listing.get('additional_description_files',[]):
+    for name in listing.get('additional_description_files',[])+listing.get('additional_release_notes_files',[]):
         require(Path(name).name==name,'Unsafe translated description filename');entries[name]=(store/name).read_bytes()
     icons=listing.get('icons',[])
     if kind in ('plugin','watchapp'):require(icons==['icon-small-80.png','icon-large-144.png'],'Required Store icons missing')

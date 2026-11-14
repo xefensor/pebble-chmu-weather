@@ -1,24 +1,33 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "family": "XOCE individual product identities 2026-11-14",
+  "scope": "Weather bands and the original provider symbol identify the phone plugin; this is website artwork, not a plugin Store banner.",
   "originalArtwork": true,
-  "family": "XOCE original-Halftone Store family 2026-11-14",
-  "scope": "Xef selected the original orange Halftone banner as the reference: bold colour, curved patterned edge, large title and illustrated watch. Original binary glyphs use transparency and icon_tintable; native screenshot PNGs remain unchanged.",
   "font": {
     "name": "Fira Sans Condensed Bold",
     "licence": "SIL OFL 1.1",
+    "file": "artwork/fonts/FiraSansCondensed-Bold.ttf",
     "sourceSha256": "7ea603ffe9e04b7746213bf9414c3d63babb722c8034079bb9106bd2237a8bd3",
     "treatment": "Outlined SVG text"
   },
   "reference": {
-    "file": "pebble-watchface-halftone/store/halftone-banner-720x320.png",
-    "sha256": "e166f451c58a2b6f48addce6c1d4a075a7169180145a8258f1cd35b0b3d011de"
+    "file": "artwork/reference/halftone-banner-720x320.png",
+    "sha256": "e166f451c58a2b6f48addce6c1d4a075a7169180145a8258f1cd35b0b3d011de",
+    "use": "Preserved orange/dither character for Halftone; shared family typography and hardware treatment, not a mandatory composition for other apps."
   },
+  "sharedRules": [
+    "Fira typography",
+    "Graphite and silver watch treatment",
+    "Native app screenshots",
+    "Small XOCE endorsement",
+    "Clear text margins"
+  ],
   "files": {
-    "product-mark.svg": "f0e650bf6012b022bfabcbb818854547c1e9438c7020b2ec85fa105170e501d7",
-    "product-mark-144.png": "41da32ba409c1761f8a1da065e9d2d8761275a97425f4611ae89bb8a407a1b1d",
-    "icon-source.svg": "f0e650bf6012b022bfabcbb818854547c1e9438c7020b2ec85fa105170e501d7",
-    "icon-small-80.png": "303853fe7dc357fd45d9f72faf2753a1b6a2d3cea0b3323957d4ec0a4438ec01",
-    "icon-large-144.png": "41da32ba409c1761f8a1da065e9d2d8761275a97425f4611ae89bb8a407a1b1d"
+    "website-banner.svg": "9bd2743ec2ed56a111d6b9523e5d03f3845fde56bab87863f9001e6a685c4adf",
+    "website-banner.png": "409b2683415669902b839dee29d9e9ef26cbe2f5ca5e40daf03bf5ab3f7852f2"
   },
-  "banners": {}
+  "banners": {},
+  "source": "artwork/generate-artwork.py",
+  "screenshotPolicy": "Raw captures and PBW files are unchanged. Example data comes from supplied emulator captures, not physical hardware.",
+  "icons": "Banner generation leaves current product marks and Store icons unchanged. Their separate refresh is owned by artwork/generate-icons.py and artwork/apply-icons.py."
 }
