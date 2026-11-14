@@ -50,6 +50,21 @@ class StoreKit(unittest.TestCase):
         data=bytearray(png(80,80));data[-1]^=1
         for invalid in (bytes(data),png(80,80)[:-1],png(80,80)+b'extra'):
             with self.assertRaises(ValueError):kit.png_size(invalid)
+    def test_native_banners_bind_dimensions_source_and_original_screen(self):
+        for change in ('valid','size','hash','screen','platform','plugin'):
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as d:
+                root=Path(d);fixture(root);store=root/'store';listing=json.loads((store/'listing.json').read_text())
+                listing.update(type='watchface',banners={'emery':'emery-banner.png'},screenshots={'emery':['emery-screen.png']})
+                (store/'emery-screen.png').write_bytes(png(200,228));(store/'emery-banner.png').write_bytes(png(720 if change!='size' else 719,320));(store/'emery-banner.svg').write_text('<svg/>')
+                artwork={'originalArtwork':True,'files':{n:kit.sha((store/n).read_bytes()) for n in ['emery-banner.png','emery-banner.svg']},'banners':{'emery':{'file':'emery-banner.png','platform':'emery','screenshot':'emery-screen.png','screenshotSha256':kit.sha((store/'emery-screen.png').read_bytes())}}}
+                if change=='hash':artwork['files']['emery-banner.png']='0'*64
+                if change=='screen':artwork['banners']['emery']['screenshotSha256']='0'*64
+                if change=='platform':listing['banners']['gabbro']=listing['banners'].pop('emery')
+                if change=='plugin':listing['type']='plugin'
+                (store/'artwork-provenance.json').write_text(json.dumps(artwork));(store/'ARTWORK-LICENSES.txt').write_text('Original artwork; font attribution')
+                if change=='valid':self.assertIn('emery-banner.png',kit.banner_payload(store,listing,['emery']))
+                else:
+                    with self.assertRaises(ValueError):kit.banner_payload(store,listing,['emery'])
     def test_renderer_hash_excludes_only_identified_sdk_metadata(self):
         def identity(change=None):
             binary=bytearray(200);binary[:8]=b'PBLAPP\0\0';binary[8:10]=b'\x10\x01';binary[132:148]=kit.GNU_NOTE

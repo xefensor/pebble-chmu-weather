@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "originalArtwork": true,
+  "family": "XOCE 2026-11-14",
+  "scope": "Original product marketing artwork; banners composite unmodified native capture bytes. Standalone screenshots remain native and unframed.",
+  "font": {
+    "name": "Inter",
+    "sourceSha256": "ea4e3d9970b9b6b566110a1b0e13635fe235280b83dd2443dcb3faca1e2456ef",
+    "licence": "SIL Open Font License 1.1",
+    "treatment": "Text outlined in SVG; no font dependency when rendering."
+  },
+  "files": {
+    "product-mark.svg": "57a1b315955a286e1b74bd987c5b6ee48e2c3ec4517af1db2f5fbe5a44228987",
+    "product-mark-144.png": "08970e2299bc95d8cafd5af9e7f1f15b949c15f2793732ebb1c36afdf8464fde",
+    "icon-source.svg": "57a1b315955a286e1b74bd987c5b6ee48e2c3ec4517af1db2f5fbe5a44228987",
+    "icon-large-144.png": "08970e2299bc95d8cafd5af9e7f1f15b949c15f2793732ebb1c36afdf8464fde",
+    "icon-small-80.png": "0aece8ff3886022196544f5d74cdce43b7d6d9507fb58146db0dca13d6d74dc7"
+  },
+  "banners": {}
+}

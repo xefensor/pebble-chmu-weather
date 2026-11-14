@@ -22,10 +22,18 @@
   "publication_rule_url": "https://developer.repebble.com/guides/plugins/publishing-plugins/",
   "publication_rule_checked_on": "2026-11-12",
   "remaining_publication_gates": [
-    "Physical Time 2 and current Android Pebble app checks (Round 2 is emulator-only)",
-    "Verify Developer Dashboard listing ownership, UUID and unused version",
-    "Publish and verify proposed privacy/support URLs",
-    "Explicit final publication approval"
+    "Verify Developer Dashboard ownership, existing listing and unused numeric version",
+    "Verify live app-owned support/privacy URLs",
+    "Publish exact checked GitHub and Store artifacts, then activate website links"
   ],
-  "artifact_stem": "CHMU-Weather"
+  "artifact_stem": "CHMU-Weather",
+  "additional_description_files": [
+    "description-cs.txt"
+  ],
+  "review_acceptance": {
+    "date": "2026-11-13",
+    "reviewer": "Xef",
+    "decision": "Reviewed implementation accepted for stable public release preparation; no further physical-device review prerequisite.",
+    "test_coverage": "Physical watch/phone results are not claimed; see the current release review for actual evidence."
+  }
 }

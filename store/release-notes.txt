@@ -1,5 +1,7 @@
 ČHMÚ Weather 1.0.2
 
-Adds required/optional permission descriptions for current Pebble plugin publishing. The public provider domains, plugin UUID, units, source data and public/personal separation remain unchanged.
+Publishing preparation for the public, phone-only weather plugin, including current permission descriptions. The public UUID, provider domains, units and original observation/forecast times remain unchanged.
 
-Automated package checks and a live check of the exact public PBW passed. All three public providers responded, a current station observation was verified, and no personal backend was contacted. Physical phone/watch integration and final publication approval remain pending.
+Choose nearby or fixed Czech stations, local ALADIN forecasts and optional Open-Meteo completion in English or Czech settings. No personal backend or account is used by the public plugin.
+
+This is a weather source, separate from Activities such as Timer countdowns. There is no watch app to open.

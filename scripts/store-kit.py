@@ -34,6 +34,25 @@ def png_size(data):
     require(len(raw)==expected and decoder.eof and not decoder.unused_data and not decoder.unconsumed_tail,'PNG pixel stream length differs')
     require(all(raw[row*stride]<=4 for row in range(height)),'Invalid PNG row filter')
     return width,height
+def banner_payload(store,listing,targets):
+    entries={};kind=listing['type'];banners=listing.get('banners',{})
+    if banners:
+        require(kind!='plugin' and set(banners)==set(targets),'Store banners must match native target platforms')
+        artwork=json.loads((store/'artwork-provenance.json').read_text())
+        require(artwork.get('originalArtwork') is True,'Banner artwork must declare original provenance')
+        for platform,name in banners.items():
+            require(Path(name).name==name,'Unsafe banner filename')
+            data=(store/name).read_bytes()
+            require(png_size(data)==(720,320) and artwork['files'].get(name)==sha(data),'Banner dimensions/provenance differ: '+name)
+            source=Path(name).with_suffix('.svg').name
+            require(artwork['files'].get(source)==sha((store/source).read_bytes()),'Banner source differs')
+            record=artwork['banners'][platform]
+            require(record['file']==name and record['platform']==platform and record['screenshot'] in listing['screenshots'][platform] and record['screenshotSha256']==sha((store/record['screenshot']).read_bytes()),'Banner screenshot provenance differs')
+            entries[name]=data;entries[source]=(store/source).read_bytes()
+        entries['artwork-provenance.json']=(store/'artwork-provenance.json').read_bytes()
+        entries['ARTWORK-LICENSES.txt']=(store/'ARTWORK-LICENSES.txt').read_bytes()
+    return entries
+
 def payload(root,pbw):
     package=json.loads((root/'package.json').read_text());store=root/'store'
     listing=json.loads((store/'listing.json').read_text());version=package['version'];settings=package['pebble']
@@ -73,6 +92,9 @@ def payload(root,pbw):
                     require(record['platform']==platform and record['sha256']==sha(data) and png_size(data)==DISPLAYS[platform],'Screenshot dimensions/provenance differ: '+name)
                     entries[name]=data
             entries['capture-provenance.json']=(store/'capture-provenance.json').read_bytes()
+    entries.update(banner_payload(store,listing,targets))
+    for name in listing.get('additional_description_files',[]):
+        require(Path(name).name==name,'Unsafe translated description filename');entries[name]=(store/name).read_bytes()
     icons=listing.get('icons',[])
     if kind in ('plugin','watchapp'):require(icons==['icon-small-80.png','icon-large-144.png'],'Required Store icons missing')
     if icons:
@@ -81,7 +103,16 @@ def payload(root,pbw):
             data=(store/name).read_bytes();require(png_size(data)==(size,size) and sha(data)==provenance['files'][name],'Icon size/provenance differs');entries[name]=data
         source=(store/'icon-source.svg').read_bytes();require(sha(source)==provenance['files']['icon-source.svg'],'Icon source differs');entries['icon-source.svg']=source
         entries['icon-provenance.json']=(store/'icon-provenance.json').read_bytes()
+    if (store/'artwork-provenance.json').is_file():
+        artwork=json.loads((store/'artwork-provenance.json').read_text())
+        require(artwork.get('originalArtwork') is True,'Artwork provenance must identify original artwork')
+        for name,digest in artwork['files'].items():
+            require(Path(name).name==name and Path(name).suffix in ('.png','.svg'),'Unsafe artwork filename')
+            data=(store/name).read_bytes();require(sha(data)==digest,'Artwork hash differs: '+name);entries[name]=data
+        entries['artwork-provenance.json']=(store/'artwork-provenance.json').read_bytes()
+        entries['ARTWORK-LICENSES.txt']=(store/'ARTWORK-LICENSES.txt').read_bytes()
     for name in ('LICENSE','THIRD-PARTY-NOTICES.md'):
+
         if (root/name).is_file():entries[name]=(root/name).read_bytes()
     for name,data in entries.items():require(len(data)<=4_400_000,'Store file exceeds upload limit: '+name)
     entries['README.txt']=('Local review kit for '+listing['name']+' '+version+'.\nNot submitted or published.\n\nRemaining publication gates:\n'+'\n'.join('- '+g for g in listing['remaining_publication_gates'])+'\n\nhttps://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/\nhttps://developer.repebble.com/guides/plugins/publishing-plugins/\n').encode()

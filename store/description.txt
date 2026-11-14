@@ -1,22 +1,18 @@
-Unofficial ČHMÚ weather for Pebble, focused on nearby Czech station measurements and local ALADIN forecasts.
+Unofficial Czech weather for Pebble, with nearby station observations and local ALADIN forecasts from ČHMÚ.
 
-Fresh station readings supply current temperature, humidity and wind when reported together. Public ALADIN forecasts fill unavailable fields. Optional Open-Meteo adds rain probabilities, missing fields, forecast UV and forecasts up to seven days.
+ČHMÚ Weather runs inside the Pebble phone app. Choose it as your weather provider for Pebble Weather, the timeline and compatible readings in apps such as Dynamic, Halftone and Dashboard. It follows the locations and units saved in Pebble.
 
-Select ČHMÚ Weather as Pebble's Weather provider to feed the watch's Weather app, timeline and compatible watchfaces. Plugin-aware apps can also read the standard weather/location source directly. Saved locations and units follow Pebble.
+- Select a nearby station automatically or choose a fixed Czech station.
+- See current temperature, humidity and wind when reported together by the station.
+- Get hourly and daily ALADIN forecasts, with original times and source information.
+- Optionally add rain probabilities, missing fields, forecast UV and later forecast days with Open-Meteo.
+- Use calculated feels-like temperature and sunrise/sunset information.
+- Configure the plugin in English or Czech, with light/dark themes and readable diagnostics.
 
-Features:
-- Automatic nearby station selection or a fixed station
-- Original observation times and clear measured/forecast status
-- Hourly and daily forecasts with source information
-- Open-Meteo completion and a separate forecast UV on/off choice
-- Calculated feels-like temperature and sunrise/sunset
-- Local caching without making old observations look fresh
-- English/Czech settings, light/dark themes and readable diagnostics
+Coverage is limited to Czech locations. Nearby stations do not measure your exact street. UV is a forecast, and Pebble controls native Weather update timing. Cached observations retain their original age.
 
-Czech coverage only; nearby stations do not measure your exact street. UV is a forecast, not a live measurement. Pebble controls native Weather update timing.
+Requires internet access and plugin support in the official Pebble phone app. Weather readings have separate settings from Activities such as a Timer countdown. There is no watch app to open.
 
-Requires a preview-enabled Pebble mobile app. Uses public ČHMÚ website/open-data products and optional Open-Meteo; the public release does not access ČHMÚ's authenticated mobile-app service. No personal account, ads, analytics or developer-operated server. Independent of ČHMÚ, Open-Meteo and Core Devices.
+Free. No personal account, API key, ads, analytics or developer-operated server. Uses public ČHMÚ data and optional Open-Meteo; independent of ČHMÚ, Open-Meteo and Core Devices.
 
 Source and privacy: https://github.com/xefensor/pebble-chmu-weather
-
-ČHMÚ Weather supplies weather readings for Pebble Weather and compatible apps. Choose its readings separately from Activities. An activity is an ongoing update, such as a Timer countdown shown on Dynamic or Halftone.
