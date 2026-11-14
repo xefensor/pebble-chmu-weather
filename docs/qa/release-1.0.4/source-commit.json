@@ -1,0 +1,6 @@
+{
+  "implementationCommit": "616f53b3749acd62ee08b5815bb780ab72b2b798",
+  "version": "1.0.4",
+  "pbwSha256": "6c57e1191d470cd720e4989b5b1c677747c00fab267c60601f0bc24af8d9af5b",
+  "scope": "Runtime and generated inputs are committed at this implementation commit. Final tag additionally contains the frozen release set and provenance records."
+}

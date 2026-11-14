@@ -1,0 +1,3 @@
+f90dcc1f1b4a6c65c4617f737231b14fe82f4120a708a7b7cd0e263a153d4909  CHMU-Weather-1.0.4-source.zip
+1803336b9ef4d090f8369bf4e2312221eaafc25ac4165c172b9d515d6a7ec0f5  CHMU-Weather-1.0.4-store-package.zip
+6c57e1191d470cd720e4989b5b1c677747c00fab267c60601f0bc24af8d9af5b  CHMU-Weather-1.0.4.pbw
