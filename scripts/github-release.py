@@ -205,8 +205,12 @@ def prepare(root, config_path, output, trigger_commit=None):
     identity = release_id(package)
     require(config["prerelease"] or not re.search(r"-(?:rc|beta)\.", identity),
             "Release candidates and betas must be marked prerelease")
+    tag = config.get("tag_prefix", "v") + identity
+    require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", tag), "Unsafe release tag")
+    tagged = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "refs/tags/" + tag + "^{commit}"], capture_output=True)
     bootstrap = config.get("bootstrap", {})
-    commit = bootstrap.get("source_commit") if bootstrap.get("version") == identity else trigger
+    commit = (tagged.stdout.decode().strip() if tagged.returncode == 0 else
+              bootstrap.get("source_commit") if bootstrap.get("version") == identity else trigger)
     require(isinstance(commit, str) and SHA.fullmatch(commit), "Invalid source commit")
     require(subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", commit, trigger],
                            capture_output=True).returncode == 0, "Source commit is not an ancestor")
@@ -228,8 +232,6 @@ def prepare(root, config_path, output, trigger_commit=None):
         require(digest(content) == expected[path] == current[path], "Artifact checksum differs: " + path)
         assets[path] = content
     validate_artifacts(root, config, commit, original_package, assets)
-    tag = config.get("tag_prefix", "v") + identity
-    require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", tag), "Unsafe release tag")
     note_config = config["notes"]
     notes = committed(root, commit, expand(note_config["path"], package)).decode().strip()
     if note_config.get("heading"):

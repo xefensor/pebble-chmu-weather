@@ -3,7 +3,8 @@
 This is a phone-only Pebble weather plugin, not a watchface or an Android
 companion app. It serves the standard `weather/location` source. Start with
 [README.md](README.md), [feed contracts](docs/FEEDS.md),
-[privacy](PRIVACY.md) and [validation](docs/VALIDATION.md).
+[privacy](PRIVACY.md), [validation](docs/VALIDATION.md) and the
+[1.0.4 QA correction](docs/QA-ERRATA.md).
 
 ## Public and personal boundaries
 
@@ -61,44 +62,51 @@ companion app. It serves the standard `weather/location` source. Start with
 
 ## Build and checks
 
-Use Node.js 20+ and Python 3.10+; GitHub Actions currently uses Node 22.
+Use pinned Node 22.23.4 and Python 3.12.15 from `.node-version` and
+`.python-version`; CI reads the same files. Supported minimums remain Node 20+
+and Python 3.10+.
 
 ```sh
 npm ci --ignore-scripts
 npm test
-npm run build -- --output build/candidate/CHMU-Weather.pbw
+npm run build
 ```
 
 `npm test` covers JavaScript, Python packaging and release-automation tests.
 For the focused release tests use
 `python3 -m unittest discover -s tests -p test_github_release.py`.
-`npm run smoke` makes real public weather requests against the exact PBW;
+Public builds and default smoke select the canonical versioned PBW under
+`build/candidate/`. Store-kit defaults select that candidate for preparation
+listings, or the exact `releases/` PBW for a published listing. Explicit PBW
+selection stays supported; normal builds refuse frozen `dist/` and `releases/` output.
+`npm run smoke` makes real public weather requests against that candidate;
 `npm run smoke:personal` additionally exercises authenticated personal channels.
 Do not run a live personal smoke merely to check docs. Reuse unchanged evidence
 and distinguish fixture/browser checks from live-service and physical-device
 results. Catalogue regeneration separately needs development-only `pyproj`.
 
 For a release, finish packaging/checksums/notes and commit them locally before
-running `python3 scripts/github-release.py prepare --output /tmp/chmu-release-check`.
-The helper reads committed `HEAD`, not the working tree; push to `main` after
-that check passes. Running it before committing validates the old version.
+running `npm run release:prepare`. The helper reads committed `HEAD` (or the
+existing frozen tag), not the working tree. Push/PR source checks are read-only;
+publication requires a separate explicitly requested main-branch manual workflow.
 
 ## Release lifecycle
 
 - Follow [docs/GITHUB-RELEASES.md](docs/GITHUB-RELEASES.md): package and test,
   commit the version/artifacts/notes locally, validate committed `HEAD`, then
-  push to `main` for automatic GitHub validation and publication. Actions uploads the
-  checked files; it does not rebuild them or submit a Pebble appstore listing.
+  push for read-only source checks. The manual GitHub release workflow on `main`
+  uploads the checked files only when explicitly requested; it does not rebuild
+  them or submit a Pebble appstore listing.
 - `.github/release.json` selects exact public filenames and marks prereleases.
   RC/beta IDs must remain prereleases. The bootstrap records the first frozen
   artifact commit; it is not a dependency pin to update on every release.
 - Published tags/assets are immutable under this workflow. Do not overwrite
-  or repackage 1.0.1 because later documentation or automation changed. While
+  or repackage any published version because later documentation or automation changed. While
   preparing a new, unpublished version, include its final source/notices and
   refresh checksums after packaging. Change the version when package bytes change.
 - Source ZIPs must exclude generated/build/dependency/Git folders and PBW
   binaries. Personal recipe source is allowed; personal generated artifacts
   and credentials are not. Keep public UUID, marker and domain checks intact.
-- Preserve old validation as historical. Verify current Pebble publishing
-  eligibility separately before any appstore submission; the GitHub release's
-  stable flag does not establish that permission or device coverage.
+- Preserve old validation as historical and keep current corrections explicit.
+  `store/publication.json` records checked distribution independently from device
+  coverage. A new Store submission remains a separately requested action.

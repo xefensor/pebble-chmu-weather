@@ -64,6 +64,38 @@ class PackageTests(unittest.TestCase):
         second = BUILD.build_project(self.project, run_js=False).read_bytes()
         self.assertEqual(first, second)
 
+    def test_default_candidate_build_preserves_frozen_artifacts(self):
+        preserved = {}
+        for folder in ('dist', 'releases'):
+            path = self.project / folder / 'CHMU-Weather-0.1.0.pbw'
+            path.parent.mkdir()
+            path.write_bytes(b'checked frozen package')
+            preserved[path] = path.read_bytes()
+        output = BUILD.build_project(self.project, run_js=False)
+        self.assertEqual(output, self.project / 'build/candidate/CHMU-Weather-0.1.0.pbw')
+        for path, original in preserved.items():
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_explicit_outputs_cannot_write_into_frozen_directories(self):
+        for folder in ('dist', 'releases'):
+            path = self.project / folder / 'CHMU-Weather-0.1.0.pbw'
+            path.parent.mkdir()
+            path.write_bytes(b'frozen')
+            with self.subTest(folder=folder), self.assertRaisesRegex(ValueError, 'frozen'):
+                BUILD.build_project(self.project, run_js=False, output=path)
+            self.assertEqual(path.read_bytes(), b'frozen')
+        alias = self.project / 'build/frozen-alias'
+        alias.symlink_to(self.project / 'dist', target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'frozen'):
+            BUILD.build_project(self.project, run_js=False, output=alias / 'new.pbw')
+        self.assertFalse((self.project / 'dist/new.pbw').exists())
+
+    def test_explicit_candidate_output_remains_supported(self):
+        output = self.project / 'build/review/CHMU-Weather-0.1.0.pbw'
+        self.assertEqual(BUILD.build_project(self.project, run_js=False, output=output), output)
+        with zipfile.ZipFile(output) as archive:
+            self.assertEqual(json.loads(archive.read('appinfo.json'))['versionLabel'], '0.1.0')
+
     def test_public_omits_backend_permission_and_personal_has_separate_identity(self):
         source = package()
         source['pebble']['usesPermissions'].append({'name':'Internet','parameters':{'domains':['data-provider.chmi.cz','chmu.rails.cz']}})

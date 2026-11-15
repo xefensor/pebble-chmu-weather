@@ -1,52 +1,41 @@
-# Release 1.0.4 · 2026-11-14
+# Current release and future readiness
 
-The final source tests, fresh builds, package checks and native emulator scope are recorded in [current validation](qa/release-1.0.4/validation.json). Historical galleries keep their capture versions and have explicit final-binary reuse proof. Physical phone/watch and live-provider results are not claimed. Xef authorized stable GitHub publication and retained the existing review acceptance; no new device approval gate applies. Pebble Store submission remains manual and unsubmitted.
+ČHMÚ Weather **1.0.4** is published on
+[GitHub](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.4) and
+[Pebble Store](https://apps.repebble.com/ef7111ffaeaf4593aaaa85ed). The
+[publication record](../store/publication.json) pins its public UUID and exact
+PBW hash. The existing review acceptance is retained; no new device-approval gate
+is introduced by this documentation correction.
 
-# Local Store release candidate — 2026-11-12
+## Actual package scope
 
-This version is prepared for review and sideload testing. It has not been
-submitted to Pebble Store or published as a new GitHub release.
+This is the public **phone-only weather plugin**, with no watch binary,
+launcher, native target or Pebble SDK dependency. Personal-service binaries and
+credentials are excluded. The frozen [1.0.4 summary](qa/release-1.0.4/validation.json)
+records source/package checks, Node 22.23.4 and Python 3.12.15. Its generic native
+screenshot sentence is corrected by [QA-ERRATA.md](QA-ERRATA.md); it is not native
+emulator evidence. Physical-phone and fresh live-provider results are not claimed.
 
-Native products target Time 2 (Emery) and Round 2 (Gabbro) only. Duo is excluded.
-ČHMÚ Weather is the public phone-only plugin. Personal Weather is never included.
+The old mixed readiness checklist is retained separately in
+[history](history/release-readiness-before-2026-11-15.md). Its older publication
+status and native-device checklist do not govern this plugin.
 
-The release uses SDK 4.44 / pebble-tool 5.1.2, Node 22.23.4 and Python 3.12.15.
-The SDK emulator firmware reports v4.44.3. Dependencies are locked and internal
-library archives record exact source commits and checksums. The native CI job
-has been prepared and checked locally; it has not run on GitHub yet.
+## A future changed package
 
-Source tests, package audits and emulator checks are separate from physical
-phone/watch validation. Raw evidence remains in the local workspace under
-`recovery-validation/release-qa/`; the release review bundle records the exact
-PBW hashes and evidence paths. Store screenshots are unmodified native pixels
-with synthetic sample data. Phone previews were refreshed from native renders.
+1. Preserve the public UUID and public/personal boundaries. Use a new unused
+   numeric version when package bytes change and mark that new listing as
+   preparation; do not rebuild an existing release.
+2. Run the pinned source/package checks and create a disposable public candidate
+   with `npm run build`. Record any additional exact-PBW browser, public-service
+   or real-phone checks separately, with their actual environment and date.
+3. Prepare/check its Store kit, then freeze that exact candidate and kit with
+   `python3 scripts/freeze-release.py`. Never replace earlier frozen files.
+4. Commit the complete new release locally and run `npm run release:prepare`.
+   Push/PR checks validate source; the separate manual GitHub release workflow
+   uploads checked packages only when publication has been requested.
+5. For a separately requested Store update, use the existing listing and a new
+   release, verify version availability and exact bytes, then record its result.
 
-Before publication:
-
-- Test the final PBW on Time 2 with the current Android Pebble app: upgrade with
-  saved state, permission denial/regrant, actual settings Save, selected provider
-  delivery, offline/reconnect and the product's physical controls.
-- Check real Timer Wakeups/Quiet Time and live music, notifications and artwork
-  where applicable. Round 2 remains emulator-only and must be disclosed.
-- Confirm Developer Dashboard listing ownership, UUID and unused version.
-- Publish the proposed privacy/support documents at the listed URLs and verify
-  them. The current site catalogue keeps existing public downloads until the
-  new GitHub releases exist.
-- Obtain final publication approval. Local freezing and release preparation
-  do not authorize a push, release workflow, Store upload or site deployment.
-
-Use `npm run store:prepare` and `npm run store:check`, then
-`python3 scripts/freeze-release.py` to freeze exact checked candidates into new
-versioned files. Existing historical files and checksums stay unchanged.
-
-## Verified candidate
-
-Exact public PBW live smoke passed against all three declared public hosts (HTTP 200), with zero private-backend requests and zero request-safety failures. Public/private packaging and cache/expiry/permissions regressions pass. Personal Weather was not exercised or included in public release files.
-
-Exact package identity, checks and remaining gates are recorded in
-[the versioned review](qa/1.0.2/release-review.json).
-
-
-## Store update — 1.0.3 (2026-11-14)
-
-Xef requested a new numeric version for the reviewed current implementation and Store handoff. Public Store history already contains 1.0.2; 1.0.3 was absent from the checked public Store history and GitHub tags. The public UUID, saved-state compatibility, pinned dependencies and reviewed native interfaces are retained. New source/artifact/Store verification is recorded with this release preparation; prior emulator captures are reused only after native renderer/resource equality is verified. No new physical-device result is claimed. GitHub branch pushes are authorized; app submission and website deployment remain separate.
+See [contributing](../CONTRIBUTING.md), [GitHub release instructions](GITHUB-RELEASES.md)
+and [Store publishing](../store/PUBLISHING.md). Documentation maintenance, candidate
+builds and read-only checks do not create a release or submit the app.

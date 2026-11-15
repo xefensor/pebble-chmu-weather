@@ -2,62 +2,93 @@
 
 Follow the [XOCE contributor conventions](https://github.com/xefensor/xoce/blob/main/docs/contributor-conventions.md)
 and this project's [maintainer instructions](AGENTS.md). This is a phone-only
-plugin. It needs Node.js 20+ and Python 3.10+; it needs no Pebble SDK, native
-Android app or sibling checkout. CI uses Node 22. Install the locked dependencies:
+plugin: no Pebble SDK, native Android app or sibling checkout is required.
+
+## Build a local candidate
+
+Use the pinned Node **22.23.4** and Python **3.12.15** from `.node-version` and
+`.python-version`; CI reads those files too. The supported minimum remains
+Node 20+ and Python 3.10+. Install the locked dependencies, then run:
 
 ```sh
 npm ci --ignore-scripts
 npm test
-npm run build -- --output build/candidate/CHMU-Weather.pbw
+npm run build
 ```
 
-The build is public by default. The explicit output keeps frozen `dist/` releases
-intact. Preserve the public UUID, three declared public domains, source fields,
-locations, units and the distinction between observations and forecasts. See
-[feed contracts](docs/FEEDS.md) and [privacy](PRIVACY.md).
+For current version 1.0.4, the public output is
+`build/candidate/CHMU-Weather-1.0.4.pbw`. The versioned basename follows
+`package.json`, including any RC suffix. An explicit output is supported:
+
+```sh
+npm run build -- --output build/qa/CHMU-Weather-1.0.4.pbw
+```
+
+Keep the canonical versioned basename when choosing another directory. Normal
+builds refuse output under frozen `dist/` or `releases/`. Preserve the public UUID,
+three public domains, locations/units and observation-versus-forecast meaning.
+See [feed contracts](docs/FEEDS.md) and [privacy](PRIVACY.md).
 
 ## Source and outputs
 
 `src/plugin/` owns Pebble source/config handlers; `src/lib/` owns providers,
 parsing, envelopes, settings and caches. `src/config.html` owns the bilingual
-settings page. `scripts/` builds and verifies packages, `test/` contains
-JavaScript tests, `tests/` contains Python checks, `docs/` records contracts and
-verification, and `store/` holds listing assets. Keep these project-specific
-locations and packaging references intact.
+settings page. `scripts/` builds/verifies packages, `test/` contains JavaScript
+checks, `tests/` contains Python checks and `store/` holds listing artwork/copy.
 
-Use ignored `build/candidate/` for public development artifacts and `build/qa/`
-for disposable evidence. `npm test` includes packaging and release-automation
-checks. For live public data checks against the exact candidate:
+Use ignored `build/candidate/` for development PBWs, `build/store/` for checked
+submission kits and `build/qa/` for disposable evidence. `npm test` covers source,
+packaging and release automation. To make real public weather requests against
+the exact current candidate, run this optional check separately:
 
 ```sh
-python3 scripts/smoke.py --pbw build/candidate/CHMU-Weather.pbw
+python3 scripts/smoke.py --pbw build/candidate/CHMU-Weather-1.0.4.pbw
 ```
 
-The smoke check makes public HTTPS requests. It executes the packaged plugin in
-a restricted host shim; it does not establish installation, permission prompts
-or provider delivery inside a physical Pebble phone app. Keep those checks
-separate in the report. Review [validation](docs/VALIDATION.md) before reusing
-historical results.
+The smoke executes packaged JavaScript in a restricted host shim. It does not
+establish physical-phone installation, permission prompts or provider delivery.
+Keep its result separate from browser fixtures and real devices; consult
+[validation](docs/VALIDATION.md) and the [QA correction](docs/QA-ERRATA.md).
 
-## Personal builds and publication
+## Personal builds
 
-`npm run build:personal` is an explicit separate channel under ignored
-`build/personal/`, with its own identity. Public checks do not need a live
-personal-service smoke or credentials. Preserve its separation from public
-packages, catalogue links and release assets.
+`npm run build:personal` writes a separately labelled package under ignored
+`build/personal/`, with its own UUID. Public checks need no personal-service
+credentials or live personal smoke. Personal binaries and generated credentials
+must not enter public release files. Source/build recipes remain available.
 
-Use local commits for review. Follow [the release workflow](docs/GITHUB-RELEASES.md)
-only when publication is authorized: a push to `main` can publish automatically.
-Do not overwrite frozen 1.0.1 artifacts, bump a version for routine edits, or
-treat a local candidate as a published release.
+## Prepare a future release
 
-## Freeze a reviewed Store candidate
+Version 1.0.4 is already published. Routine documentation/tooling changes do not
+require a new version, a rebuild of frozen files or a new release. For a separately
+reviewed package change, first select an unused version and update its
+listing/release metadata to preparation. The following commands then use that package version:
 
-After current source, artifact, configuration and Store checks pass, run
-`python3 scripts/freeze-release.py` to copy the exact checked PBW, debug and Store
-kit bytes and make the standalone source ZIP. It refuses an existing version
-and writes `releases/SHA256SUMS-VERSION.txt`; old root checksums and artifacts
-remain untouched. Commit these files locally, then run `npm run release:prepare`
-to validate committed HEAD. No build, tag, upload or publication happens during
-freezing or preparation. The current candidate's physical-device and account
-gates remain in `docs/RELEASE-READINESS.md`.
+```sh
+npm run build
+npm run store:prepare
+npm run store:check
+python3 scripts/freeze-release.py
+```
+
+For a preparation listing, Store preparation/checks select that candidate. A
+published listing instead selects the exact `releases/CHMU-Weather-VERSION.pbw`
+so ordinary Store checks do not substitute development bytes for a public build.
+Override either with `--pbw PATH` when intentionally checking another canonical-
+named PBW. The freezer
+also supports `--pbw PATH --store-kit PATH`; its defaults are the current candidate
+and `build/store/CHMU-Weather-VERSION-store-package.zip`. It compares the exact kit
+contents with that PBW, refuses an existing frozen version and creates the public
+PBW/source/Store archives plus `releases/SHA256SUMS-VERSION.txt`. This plugin has
+no native debug archive.
+
+Commit a complete future release locally before `npm run release:prepare`.
+Preparation reads committed HEAD (or its existing frozen tag when applicable),
+not unsaved working-tree changes, and does not build or publish. Preserve all
+published tags/assets and existing `dist/`, `releases/` and historical QA bytes.
+
+Push/PR workflows run read-only checks. Publication is a separate, explicitly
+requested **GitHub release → Run workflow** operation on main; ordinary pushes
+no longer publish automatically. See [the release guide](docs/GITHUB-RELEASES.md)
+and [current readiness](docs/RELEASE-READINESS.md). No Store upload is triggered
+by source checks, freezing, preparation or the GitHub release workflow.

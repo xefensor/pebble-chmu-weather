@@ -1,17 +1,6 @@
 name: GitHub release
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - package.json
-      - dist/**
-      - dist.zip
-      - releases/**
-      - .github/release.json
-      - .github/workflows/release.yml
-      - scripts/github-release.py
-      - tests/test_github_release.py
   workflow_dispatch:
 
 permissions:
@@ -19,7 +8,7 @@ permissions:
 
 jobs:
   check:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.prepare.outputs.release_id }}
@@ -30,8 +19,11 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version-file: .python-version
       - run: npm ci --ignore-scripts
       - run: npm test
       - run: python3 -m unittest discover -s tests -p test_github_release.py
@@ -51,6 +43,9 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version-file: .python-version
       - run: python3 scripts/github-release.py prepare --output "$RUNNER_TEMP/release"
       - run: python3 scripts/github-release.py publish --output "$RUNNER_TEMP/release"
         env:

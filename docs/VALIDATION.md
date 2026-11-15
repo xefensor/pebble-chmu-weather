@@ -1,6 +1,19 @@
 # Validation
 
-## GitHub distribution and documentation
+## Current release · 1.0.4
+
+The public release is 1.0.4. [Publication metadata](../store/publication.json)
+records distribution separately from runtime checks. The frozen
+[1.0.4 source/package summary](qa/release-1.0.4/validation.json) remains unchanged;
+read the [QA correction and scope](QA-ERRATA.md) before interpreting its generic
+native-screenshot text. This phone-only plugin has no native watch/emulator runs.
+
+The versioned results below remain historical evidence for their original
+packages, dates and environments. They are not fresh 1.0.4 service/device checks.
+Older invitation/publication wording describes its recorded time, rather than
+the current Store status or an additional approval prerequisite.
+
+## Historical GitHub distribution and documentation · 1.0.1
 
 The public [v1.0.1 GitHub release](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1)
 uses the already-tested artifact commit `127995bf5612809c6693c0622813198475b37a75`.

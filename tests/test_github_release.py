@@ -133,6 +133,28 @@ class ReleaseTests(unittest.TestCase):
     def prepared(self):
         return release.prepare(self.root, self.config_path, self.out)
 
+    def test_tagged_release_survives_later_package_scripts_and_docs(self):
+        self.run_git('tag', 'v1.2.3', self.original)
+        self.config.pop('bootstrap', None)
+        self.config_path.write_text(json.dumps(self.config))
+        self.write('package.json', json.dumps(dict(self.package, scripts={'release:prepare': 'new maintenance command'})).encode())
+        self.write('README.md', b'Current contributor documentation\n')
+        self.commit()
+        manifest = self.prepared()
+        self.assertEqual(manifest['source_commit'], self.original)
+        self.assertIn('Correct release notes.', (self.out / 'release-notes.md').read_text())
+
+    def test_tag_on_unrelated_history_is_rejected(self):
+        self.run_git('branch', 'original', self.original)
+        self.run_git('checkout', '--orphan', 'other')
+        self.write('README.md', b'Unrelated source\n')
+        unrelated = self.commit()
+        self.run_git('tag', 'v1.2.3', unrelated)
+        self.run_git('checkout', 'original')
+        with self.assertRaisesRegex(ValueError, 'not an ancestor'):
+            self.prepared()
+        self.assertFalse(self.out.exists())
+
     def test_bootstrap_uses_tested_commit_and_flat_download_checksums(self):
         self.write("README.md", b"Unreleased documentation update\n")
         self.write(".github/workflows/release.yml", b"new automation\n")

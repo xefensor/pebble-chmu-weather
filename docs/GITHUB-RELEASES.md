@@ -1,122 +1,99 @@
 # GitHub releases
 
-The release workflow publishes versioned downloads to the repository's
-[Releases page](https://github.com/xefensor/pebble-chmu-weather/releases).
-The release workflow uploads the existing, checked public packages. The
-personal build remains outside the public release allowlist.
-
 ## Current public release
 
-[**v1.0.1 is published**](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1), using tested commit
-`127995bf5612809c6693c0622813198475b37a75`. It keeps the public plugin UUID
-`00866104-6ce5-4ae3-952f-9800f437442c` and the numeric Pebble version `1.0.1`.
-The GitHub release is a stable project release; Pebble publishing eligibility
-remains a separate account/platform requirement.
+**[Version 1.0.4](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.4)**
+is published on GitHub and in [Pebble Store](https://apps.repebble.com/ef7111ffaeaf4593aaaa85ed).
+[store/publication.json](../store/publication.json) records the verified public
+links, UUID and exact PBW SHA-256. Source/package evidence and its
+[QA correction](QA-ERRATA.md) remain distinct from publication.
 
-The selected public assets are:
+The GitHub release contains:
 
-- `CHMU-Weather-1.0.1.pbw`
-- `CHMU-Weather-1.0.1-source.zip`
-- `CHMU-Weather-1.0.1-store-package.zip`
-- `SHA256SUMS.txt`, containing only the selected release asset basenames.
+- `CHMU-Weather-1.0.4.pbw`
+- `CHMU-Weather-1.0.4-source.zip`
+- `CHMU-Weather-1.0.4-store-package.zip`
+- `SHA256SUMS.txt`, containing those selected asset basenames.
 
-The initial tag points to that tested commit. Adding the automation does not
-rebuild those packages or change the previously checked source archive.
-Documentation and automation can move forward on `main` while those downloads
-remain frozen. The next packaged version gets a new source snapshot and tag.
-
-After downloading all four files into one directory, verify them with:
+Download all four into one directory, then verify with:
 
 ```sh
 sha256sum -c SHA256SUMS.txt
 ```
 
-The public PBW, source and store archives are also kept in [`dist/`](../dist/).
+The frozen 1.0.4 package/source/Store files are also under [`releases/`](../releases/),
+with `SHA256SUMS-1.0.4.txt`. Historical `dist/` files, earlier releases and the
+initial 1.0.1 bootstrap commit remain unchanged. A new current document does not
+change the contents of an already-published source archive.
 
 ## Future releases
 
-1. Update the numeric `package.json` version; if preparing a candidate, add the
-   intended `releaseCandidate` number and set the configured GitHub prerelease
-   flag appropriately. An RC or beta ID must remain a GitHub prerelease. Preserve the public UUID.
-2. Run the tests and prepare the **public** build with `npm run build`. Follow
-   the [validation record](VALIDATION.md) for any relevant runtime/service/UI
-   checks. Assemble the source and store archives, update `dist/SHA256SUMS`,
-   and refresh the release notes.
-3. Confirm the exact public filenames match `.github/release.json`. Templates
-   use `{release_id}`, which includes `-rc.N` when applicable.
-4. Commit the version, checked artifacts, checksums and notes locally. Run the
-   release helper against that committed `HEAD`, then push the commit to `main`.
-   GitHub Actions validates the pushed version and publishes the downloads. It
-   attaches the prepared packages rather than rebuilding them.
+Routine source documentation or tooling changes do not create a release. For a
+separately requested package change:
 
-For local checks without uploading anything, install dependencies and run tests:
+1. Choose an unused numeric version in `package.json`, preserving the public
+   UUID. Set the new listing to preparation and update its notes/metadata. RC/beta
+   identifiers must remain GitHub prereleases.
+2. Select the pinned runtimes, install locked dependencies and run source/package
+   checks. `npm run build` creates the canonical public candidate beneath
+   `build/candidate/`; normal builds refuse frozen output folders.
+3. Run `npm run store:prepare` and `npm run store:check`. Preparation listings
+   default to that candidate; published listings default to their exact `releases/`
+   PBW. The `--pbw PATH` override explicitly selects another canonical-named file.
+   Follow [readiness](RELEASE-READINESS.md) for evidence scope.
+4. Run `python3 scripts/freeze-release.py` for the unused version. Defaults select
+   that candidate and its checked `build/store/` kit; `--pbw PATH --store-kit PATH`
+   select explicit inputs. The helper refuses an existing frozen version and
+   copies exact checked bytes to new PBW/source/Store files and versioned checksums.
+5. Commit the complete version/artifacts/notes locally and validate the committed
+   release with `npm run release:prepare`. Then push for read-only source checks.
+6. When GitHub publication has been explicitly requested, run **Actions → GitHub
+   release → Run workflow** on main. This manual operation uploads the checked
+   frozen packages; it does not rebuild them or submit a Pebble Store update.
+
+For a local check:
 
 ```sh
 npm ci --ignore-scripts
 npm test
+npm run release:prepare
 ```
 
-After packaging and committing the complete release locally, validate it with:
-
-```sh
-python3 scripts/github-release.py prepare --output /tmp/chmu-release-check
-```
-
-`prepare` reads committed `HEAD`, not uncommitted working-tree changes. Running
-it before the release commit checks the previous committed version. Push to
-`main` only after this check passes.
-
-`npm test` covers JavaScript, packaging and release-automation tests. The
-focused release check is `python3 -m unittest discover -s tests -p test_github_release.py`.
-Live network smoke tests are separate; they are not run by the release workflow.
-
-The release configuration is repository-maintained metadata. Its `bootstrap`
-entry identifies only the initial existing release; future versions use
-their own artifact commit. Existing release assets are immutable: bump the
-version when package bytes need to change.
-
-A manual rerun through the release workflow's **Run workflow** button is safe
-for the same version and identical assets. It verifies the existing release
-instead of creating a duplicate. Conflicting tag targets or changed asset
-bytes fail validation rather than replacing a published release.
-
-## Public/personal boundary
-
-The workflow selects exact public filenames and verifies the public PBW's
-identity and build marker. The public script must start with
-`// CHMU_BUILD_VARIANT=public`, and its script and internet permissions must
-exclude the authenticated `chmu.rails.cz` service. Its configuration must also
-identify the public variant.
-
-Personal binaries belong in ignored `build/personal/`; neither that directory
-nor `*-personal*` artifacts are uploaded. Source ZIP validation also rejects
-root `build/`, `node_modules/`, `.git/` and `.pebble/` folders and any `.pbw`
-member, including a nested or differently cased personal binary. The public source archive intentionally
-includes the personal build recipe and code, as documented in the main README;
-that does not turn the public PBW into the personal variant. Installation
-credentials are generated at runtime and are not embedded in the public build.
+Preparation reads committed HEAD, not uncommitted changes. An unchanged existing
+release is validated against its original tag and frozen artifact identity;
+later documentation/tooling commits do not authorise replacing it. `.github/release.json`
+selects the public files. Its bootstrap record identifies the first frozen
+release and is not a dependency pin to update on every version.
 
 ## Workflow boundaries
 
-The `check` job has read-only repository access and runs portable tests and
-artifact validation. Only the `publish` job receives content-write access through
-GitHub's built-in token. The workflow uses pinned official checkout/Node actions;
-no personal access token or separate scheduler is needed. Publication creates a
-draft, verifies every uploaded asset, then publishes it. A matching interrupted
-draft can resume; an incompatible published release fails rather than being
-clobbered.
+Pushes and pull requests run source/candidate checks without upload credentials.
+The separate release workflow is manual-only and restricted to main. Its
+read-only checks precede the content-write publish job. It uses GitHub's workflow
+token and pinned actions; no personal access token is required.
 
-The workflow is limited to `main`. It triggers for version/artifact/checksum or
-release-automation changes, and supports **Actions → GitHub release → Run workflow**.
-Ordinary documentation-only commits do not trigger a release. Do not move an
-existing tag or replace a released file to fix a later issue: prepare a new
-version instead.
+A repeated manual run for the same tag and identical files verifies the existing
+release rather than replacing it. A matching interrupted draft can resume;
+changed assets or a conflicting tag fail. Never move a published tag or replace
+its files to repair a later issue.
 
-## Pebble distribution status
+The focused release tests are
+`python3 -m unittest discover -s tests -p test_github_release.py`. Live weather
+requests are a separate optional smoke check, not part of normal source CI or
+release publication. Phone permissions/provider delivery and physical-device
+coverage require their own evidence.
 
-GitHub provides downloadable public packages. The workflow does not submit a
-Pebble appstore listing, run live weather requests or use personal service
-credentials. Review [Pebble publishing instructions](../store/PUBLISHING.md)
-and the remaining live-service/physical-device checks before a store upload.
+## Public and Personal separation
 
-[Project README](../README.md) · [Maintainer notes](../AGENTS.md) · [Validation](VALIDATION.md)
+The allowlist contains the public PBW, source ZIP and Store ZIP only. The public
+script/build marker and configuration identify `public`; public permissions and
+runtime code exclude `chmu.rails.cz` and app-service authentication.
+
+Personal binaries belong in ignored `build/personal/`, with a separate name and
+UUID. They and generated credentials must never be public release assets.
+Personal recipe/source code can remain in the public source ZIP; generated
+build/dependency/Git folders and PBW binaries cannot. This is a phone-only
+plugin, so no native debug archive or launcher capture belongs in its release.
+
+[README](../README.md) · [Contributing](../CONTRIBUTING.md) ·
+[Store publishing](../store/PUBLISHING.md) · [Current validation](VALIDATION.md)

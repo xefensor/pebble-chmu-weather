@@ -113,6 +113,12 @@ def build_project(project=ROOT, *, run_js=True, output=None, variant="public"):
     appinfo = appinfo_from_package(package, variant)
     stem = artifact_stem(package, variant)
     bundle_dir = project / "build" / "personal" if variant == "personal" else project / "build"
+    output = Path(output) if output else (bundle_dir if variant == "personal" else project / "build/candidate") / f"{stem}.pbw"
+    destination = output.resolve()
+    for name in ("dist", "releases"):
+        frozen = (project / name).resolve()
+        if destination == frozen or frozen in destination.parents:
+            raise ValueError("Build outputs belong outside frozen dist/ and releases/; use build/candidate/ and freeze a reviewed version separately")
     if package.get("license") == "SEE LICENSE IN LICENSE" and not (project / "LICENSE").is_file():
         raise ValueError("package.json refers to LICENSE, but that file is missing")
     if run_js:
@@ -134,7 +140,6 @@ def build_project(project=ROOT, *, run_js=True, output=None, variant="public"):
             entries[name] = path.read_bytes()
     if any(not content.strip() for content in entries.values()):
         raise ValueError("the plugin script, config page and included license files must not be empty")
-    output = Path(output) if output else (bundle_dir if variant == "personal" else project / "dist") / f"{stem}.pbw"
     output.parent.mkdir(parents=True, exist_ok=True)
     # Fixed metadata makes identical source builds reproducible.
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:

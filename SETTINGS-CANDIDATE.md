@@ -1,6 +1,11 @@
-# ČHMÚ Weather settings candidate
+# Settings changes shipped in 1.0.4
 
-This is the unpublished ČHMÚ Weather 1.0.4 candidate. Its public UUID, provider behavior and permissions are unchanged. The fresh public PBW is under `build/candidate/`; build and verification records are collected alongside the release-work apps in `proofs/chmu-weather/`. The original frozen 1.0.3 review package remains unchanged. Nothing has been published.
+These reviewed settings changes are included in the published public 1.0.4
+release. The public UUID, provider behaviour and permissions are unchanged.
+[Current release metadata](store/publication.json), [validation](docs/VALIDATION.md)
+and the [QA correction](docs/QA-ERRATA.md) distinguish distribution, packaged/browser
+fixtures and real-device evidence. Original 1.0.3 and 1.0.4 archives stay frozen.
+Disposable rebuilds belong in `build/candidate/`; they are not new releases.
 
 The candidate corrects three interactions:
 

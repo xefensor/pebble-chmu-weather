@@ -8,7 +8,7 @@
   "runtimeSourceCommit": "616f53b3749acd62ee08b5815bb780ab72b2b798",
   "storeSourceCommit": "616f53b3749acd62ee08b5815bb780ab72b2b798",
   "publicStoreVersionCheckedOn20261114": "1.0.3",
-  "binaryAction": "New Release: upload the exact final GitHub PBW after publication",
+  "binaryAction": "already-published: verify the exact 1.0.4 PBW against publication.json; do not upload a duplicate release",
   "description": "description.txt",
   "releaseNotes": "release-notes.txt",
   "screenshotsInUploadOrder": {},
@@ -22,13 +22,14 @@
   "githubBranch": null,
   "runtimeSourceUrl": "https://github.com/xefensor/pebble-chmu-weather/commit/616f53b3749acd62ee08b5815bb780ab72b2b798",
   "storeSourceUrl": "https://github.com/xefensor/pebble-chmu-weather/commit/616f53b3749acd62ee08b5815bb780ab72b2b798",
-  "checks": "Fresh final build and exact package/platform audits; historical gallery reuse has explicit proof. No Store submission or physical-device claim.",
+  "checks": "The publication record pins the checked public PBW. Source/package and simulated settings checks are distinct from real-phone/provider evidence; no native watch target or launcher exists.",
   "artworkRefresh": "XOCE individual product identities, 2026-11-14; artwork-only refresh, supplied native screens and PBW retained.",
-  "iconRefresh": "Black transparent 25px native launcher integrated for native products; Store icon assets are separate.",
+  "iconRefresh": "Current black transparent 80/144 plugin icons and separate website marks; this phone-only plugin has no native launcher.",
   "descriptionRefresh": "Benefit-first plain-text copy reviewed against supplied implementation and current Pebble guidance, 2026-11-14; no runtime or release identity changes.",
   "descriptionHashes": {
     "description.txt": "72008055f7632aaf714b71dc809fd6fb3b7aa986dd4f03b738fa90db054a71b1",
     "description-cs.txt": "a5df519720cdffb99d0fde20690222f4f55200e1e4de45b16eb707f9e585f266"
   },
-  "sourceCommitRecord": "../docs/qa/release-1.0.4/source-commit.json"
+  "sourceCommitRecord": "../docs/qa/release-1.0.4/source-commit.json",
+  "publicationRecord": "publication.json"
 }

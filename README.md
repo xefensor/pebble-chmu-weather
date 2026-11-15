@@ -1,5 +1,10 @@
 # ČHMÚ Weather for Pebble
 
+![ČHMÚ Weather website artwork: weather bands and a sun, cloud and rain symbol for the phone-only plugin.](store/website-banner.png)
+
+Website artwork for the phone-only plugin; Store uploads use its icon files.
+[Current artwork and provenance](store/current-artwork.json).
+
 Unofficial weather plugin by Xef. Nearby ČHMÚ station measurements supply the
 current temperature, humidity and wind when the station reports them together.
 Public ALADIN supplies local forecasts. When enabled, Open-Meteo completes
@@ -10,62 +15,84 @@ The plugin serves Pebble's standard `weather/location` source and runs inside
 the Pebble phone app. No API key, user sign-in, separate Android app or
 developer-operated server is needed.
 
-## Store update 1.0.3
+<a id="store-update-103"></a>
 
-Current source prepares ČHMÚ Weather 1.0.3 for the reviewed Store update. The new numeric version supersedes the existing public 1.0.2 binary without changing the public UUID. Its exact PBW, Store package, source and checksums are under `releases/`; earlier artifacts remain unchanged.
+## Current release · 1.0.4
+
+**[Install from Pebble Store](https://apps.repebble.com/ef7111ffaeaf4593aaaa85ed)** ·
+[Setup guide](https://xefensor.github.io/xoce/docs/pebble/chmu-weather/) ·
+[GitHub release v1.0.4](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.4) ·
+[Support](SUPPORT.md) · [Privacy](PRIVACY.md)
+
+Version 1.0.4 is published in Pebble Store and on GitHub. It improves settings
+save/refresh feedback, station-change context and UV guidance while preserving
+the public UUID and provider behaviour. The [publication record](store/publication.json)
+identifies the checked public PBW; earlier releases and archives remain frozen.
 
 ## Weather readings and Activities
 
-ČHMÚ Weather supplies weather readings for Pebble Weather and compatible apps. Choose its readings separately from Activities. An activity is an ongoing update, such as a Timer countdown shown on Dynamic or Halftone. This plugin supplies weather rather than publishing Timer-style activities. Configure it as a weather provider or choose its readings in Pebble’s Complications settings.
+ČHMÚ Weather supplies weather readings for Pebble Weather and compatible apps.
+Choose its readings separately from Activities. An activity is an ongoing update,
+such as a Timer countdown shown on Dynamic or Halftone. This plugin supplies
+weather rather than publishing Timer-style activities.
 
-## Download and install 1.0.1
+<a id="download-and-install-101"></a>
 
-The public **[GitHub release v1.0.1](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.1)** is available now:
+## Download and install
 
-[Install PBW](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1.pbw) · [Source](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1-source.zip) · [Store package](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1-store-package.zip) · [SHA-256 checksums](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/SHA256SUMS.txt)
+Use the Store link above in the official Pebble phone app. For manual installation,
+download the matching public file from the **[v1.0.4 release](https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.4)**:
 
-This is the public plugin, not **ČHMÚ Weather Personal**. A stable GitHub
-release does not itself grant access to Pebble's plugin preview or permission
-to submit an appstore listing. [Publishing status and checks](store/PUBLISHING.md)
-remain separate from the downloadable version.
+[Public PBW](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.4/CHMU-Weather-1.0.4.pbw) ·
+[Source ZIP](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.4/CHMU-Weather-1.0.4-source.zip) ·
+[Store package](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.4/CHMU-Weather-1.0.4-store-package.zip) ·
+[SHA-256 checksums](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.4/SHA256SUMS.txt)
 
-[Settings preview: English/light](docs/images/settings-en-light.png) · [Czech/dark](docs/images/settings-cs-dark.png)
+Open the `.pbw` with Pebble. Source and Store ZIPs are development/submission
+materials, not installation files. This is the public plugin, not **ČHMÚ Weather
+Personal**; there is no watch app to launch.
+
+[Current product and settings examples](https://xefensor.github.io/xoce/projects/chmu-weather/)
+identify their capture scope. The retained [English/light](docs/images/settings-en-light.png)
+and [Czech/dark](docs/images/settings-cs-dark.png) repository images are historical
+1.0.1 browser previews, not fresh 1.0.4 or physical-phone evidence.
 
 ## Compatibility
 
-This phone-only plugin requires a Pebble mobile app with the plugin preview and
-Weather-provider APIs. The [current official plugin guide](https://developer.repebble.com/guides/plugins/preview/)
-describes mobile 1.17.0.1 and supports the preview from 1.16.x. Installation and
-permission behavior still need checking in the actual phone runtime. There is
-no separate watch binary or Pebble SDK requirement for building this plugin.
-Coverage is Czechia; see [feed contracts](docs/FEEDS.md) and the limitations below.
+Use the current official Pebble phone app with plugin and Weather-provider APIs.
+Enable **Settings → Plugins → Plugins / permissions preview** when offered;
+labels can vary with the phone-app version. See the [official plugin guide](https://developer.repebble.com/guides/plugins/preview/).
+This phone-only package needs no native watch binary or Pebble SDK. Coverage is
+Czechia; see [feed contracts](docs/FEEDS.md) and the limitations below.
 
 ## Setup and use
 
-1. Use a Pebble mobile app supporting the plugin APIs. In 1.16.x, enable
-   **Settings → Plugins → Plugins / permissions preview** if required. Labels
-   may change between app versions.
-2. Open the [released PBW](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.1/CHMU-Weather-1.0.1.pbw) with the Pebble app.
-3. Allow Location and internet access to `data-provider.chmi.cz`,
-   `opendata.chmi.cz` and `api.open-meteo.com` through Pebble's
-   normal permission flow.
-4. Select **Settings → Weather → Weather provider → ČHMÚ Weather**. This feeds
-   the watch's Weather app and timeline, and watchfaces using Pebble weather.
-   Your saved weather locations and units are used automatically.
-5. Open the plugin settings, refresh the data, and inspect the current reading
-   and measured/forecast status. Choose a nearby station or leave selection on
-   Automatic. Source timestamps and technical details remain available under
-   **Source details**.
+1. Install the public plugin from [Pebble Store](https://apps.repebble.com/ef7111ffaeaf4593aaaa85ed),
+   or open the matching [1.0.4 PBW](https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.4/CHMU-Weather-1.0.4.pbw)
+   with the official Pebble phone app.
+2. Allow required Internet access to `data-provider.chmi.cz`. Location is optional
+   for saved places and used for the current-location entry. Backup observations
+   (`opendata.chmi.cz`) and Open-Meteo (`api.open-meteo.com`) have optional network
+   permissions; allow Open-Meteo if you want its completion fields.
+3. Set your weather places and units in Pebble. Select **Settings → Weather →
+   Weather provider → ČHMÚ Weather** for the built-in Weather app and timeline.
+4. Open ČHMÚ Weather in Pebble's **Plugins** tab. Under **Latest loaded readings**,
+   choose **Refresh data**, then inspect the reading and its measured/forecast status.
+5. Leave **Temperature station** on **Automatic nearby station**, or choose an
+   eligible station for that saved place. Settings save automatically; use
+   **Refresh data** to inspect the new result. Expand **Source details** for ages
+   and individual-field provenance.
 
-Plugin-aware watchfaces can also select ČHMÚ Weather directly as a source.
-Version **1.0.1** is the current public GitHub release. If publishing is enabled for
-your developer account, use the exact PBW and assets in the store package.
-Preparing these files does not submit a Store listing. The earlier 0.5.1 runtime
-fix was reported working; current live-service and physical-device validation
-limits are recorded separately in [validation](docs/VALIDATION.md).
-The release includes the source archive, prepared store package and checksums.
-The same checked files remain in [`dist/`](dist/).
-Read the [publishing checklist](store/PUBLISHING.md) before uploading.
+Plugin-aware consumers can also choose its `weather/location` readings directly.
+This is separate from Activities and from choosing the built-in Weather provider.
+The [illustrated setup guide](https://xefensor.github.io/xoce/docs/pebble/chmu-weather/)
+explains these paths. Pebble controls delivery to native Weather, so refreshed
+phone readings do not promise an immediate watch update.
+
+Current and historical test scope is recorded in [validation](docs/VALIDATION.md)
+and the [1.0.4 evidence correction](docs/QA-ERRATA.md). Published files remain under
+[`releases/`](releases/); the release workflow does not submit a Store listing.
+See [publishing and current status](store/PUBLISHING.md).
 
 ### Settings
 
@@ -73,7 +100,8 @@ The settings page follows English/Czech phone language and light/dark appearance
 **Latest loaded readings** puts current values and station selection first.
 **Forecast sources** controls Open-Meteo completion and forecast UV;
 **Source details** expands timestamps and provenance. **Setup and help** explains
-Weather provider selection and coverage. UI text and diagnostics do not redefine a forecast as a
+Weather provider selection and coverage. Changes save automatically; Refresh is a
+separate data request. UI text and diagnostics do not redefine a forecast as a
 measurement.
 
 
@@ -218,31 +246,37 @@ provider bridge may reject the incomplete location and use its own fallback.
 
 ## Development
 
-New packaged versions committed to `main` are checked and published by
-[GitHub Actions](https://github.com/xefensor/pebble-chmu-weather/actions/workflows/release.yml).
-It verifies versions, exact package/source contents, public-build identity and
-checksums, then attaches the already-built files. It does not rebuild them or
-submit a Pebble appstore listing. Safe reruns preserve published tags and assets.
+Pushes and pull requests run read-only source/candidate checks. GitHub
+publication is a separate manual
+[release workflow](https://github.com/xefensor/pebble-chmu-weather/actions/workflows/release.yml)
+on main, used only when a release has been requested. It verifies exact frozen
+public packages and uploads them without rebuilding or submitting a Store
+listing. Safe reruns preserve published tags and assets.
 
 See [the release workflow](docs/GITHUB-RELEASES.md) for preparation and recovery,
 [maintainer notes](AGENTS.md) for repository boundaries, and
 [validation](docs/VALIDATION.md) for the scope of runtime, browser and service
 checks. Published packages stay frozen; later documentation-only changes on
-`main` do not rewrite the 1.0.1 downloads.
+`main` do not rewrite published downloads, including 1.0.4.
 
 ### Build and check
 
 ```sh
 npm ci --ignore-scripts
 npm test
-npm run build -- --output build/candidate/CHMU-Weather.pbw
-python3 scripts/smoke.py --pbw build/candidate/CHMU-Weather.pbw
+npm run build
+# Optional: makes real public weather requests against these exact bytes.
+python3 scripts/smoke.py --pbw build/candidate/CHMU-Weather-1.0.4.pbw
 ```
 
-Node.js 20+ and Python 3.10+ are needed; the Pebble SDK is not required for this
+Use the pinned Node 22.23.4 and Python 3.12.15 in `.node-version` and
+`.python-version` for reproduction (supported minimums: Node 20+, Python 3.10+).
+The Pebble SDK is not required for this
 phone-only PBW. The pinned esbuild release bundles JavaScript. Packaging is
 deterministic and includes permission metadata and license notices.
-The explicit candidate output preserves frozen releases. The smoke command makes real public weather requests against those exact bytes. See [CONTRIBUTING](CONTRIBUTING.md), [validation status](docs/VALIDATION.md) and [XOCE integration checks](docs/XOCE-INTEGRATION.md).
+The default public output is `build/candidate/CHMU-Weather-1.0.4.pbw` for the
+current package version. Explicit `--output` paths are supported outside frozen
+`dist/` and `releases/`; use the current versioned basename. See [CONTRIBUTING](CONTRIBUTING.md), [validation status](docs/VALIDATION.md) and [XOCE integration checks](docs/XOCE-INTEGRATION.md).
 
 ### Personal build
 
@@ -250,7 +284,7 @@ The explicit candidate output preserves frozen releases. The smoke command makes
 npm run build:personal
 ```
 
-This creates `build/personal/CHMU-Weather-1.0.1-personal.pbw`, labelled
+This creates `build/personal/CHMU-Weather-1.0.4-personal.pbw`, labelled
 **ČHMÚ Weather Personal** with a separate plugin UUID. It can coexist with
 the public build. After installing it, select **ČHMÚ Weather Personal** as
 the weather provider or complication source to use it.

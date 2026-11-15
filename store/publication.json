@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "publication_status": "published",
+  "version": "1.0.4",
+  "uuid": "00866104-6ce5-4ae3-952f-9800f437442c",
+  "store_url": "https://apps.repebble.com/ef7111ffaeaf4593aaaa85ed",
+  "github_release_url": "https://github.com/xefensor/pebble-chmu-weather/releases/tag/v1.0.4",
+  "pbw_url": "https://github.com/xefensor/pebble-chmu-weather/releases/download/v1.0.4/CHMU-Weather-1.0.4.pbw",
+  "pbw_sha256": "6c57e1191d470cd720e4989b5b1c677747c00fab267c60601f0bc24af8d9af5b",
+  "verified_on": "2026-11-15"
+}

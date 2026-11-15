@@ -26,6 +26,40 @@ def package(root,files):
         for name,value in files.items():z.writestr(name,value)
     return p
 class StoreKit(unittest.TestCase):
+    def test_published_record_binds_identity_urls_and_exact_bytes_without_upload_authority(self):
+        for change in ('valid','version','uuid','store_url','github_release_url','pbw_url','pbw_sha256','verified_on','gates','authority','repository'):
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as d:
+                root=Path(d);files=fixture(root);pbw=package(root,files);store=root/'store'
+                listing=json.loads((store/'listing.json').read_text())
+                listing.update(publication_status='published',remaining_publication_gates=[],publication_record_file='publication.json',source_url='https://github.com/example/weather',artifact_stem='Weather')
+                record={'schemaVersion':1,'publication_status':'published','version':'1.2.3','uuid':PUBLIC,
+                    'store_url':'https://apps.repebble.com/'+'a'*24,'github_release_url':'https://github.com/example/weather/releases/tag/v1.2.3',
+                    'pbw_url':'https://github.com/example/weather/releases/download/v1.2.3/Weather-1.2.3.pbw','pbw_sha256':kit.sha(pbw.read_bytes()),'verified_on':'2026-11-15'}
+                if change=='gates':listing['remaining_publication_gates']=['Still pending']
+                elif change=='authority':listing['store_submission_allowed']=True
+                elif change=='repository':
+                    pkg=json.loads((root/'package.json').read_text());pkg['repository']={'url':'https://github.com/other/weather.git'};(root/'package.json').write_text(json.dumps(pkg))
+                elif change!='valid':record[change]='wrong'
+                (store/'listing.json').write_text(json.dumps(listing));(store/'publication.json').write_text(json.dumps(record))
+                if change=='valid':
+                    entries,manifest=kit.payload(root,pbw)
+                    self.assertIn('publication.json',entries);self.assertIn(b'Published reference snapshot',entries['README.txt']);self.assertFalse(manifest['publicationReady']);self.assertIn('no fresh SDK/ELF',manifest['validationScope'])
+                else:
+                    with self.assertRaises(ValueError):kit.payload(root,pbw)
+    def test_published_cli_uses_the_frozen_reference_instead_of_a_working_candidate(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);files=fixture(root);pbw=package(root,files);store=root/'store'
+            (root/'releases').mkdir();pbw=pbw.rename(root/'releases/Weather-1.2.3.pbw')
+            (root/'build/candidate').mkdir(parents=True);candidate=root/'build/candidate/Weather-1.2.3.pbw';candidate.write_bytes(b'changed development candidate')
+            listing=json.loads((store/'listing.json').read_text());listing.update(publication_status='published',remaining_publication_gates=[],publication_record_file='publication.json',source_url='https://github.com/example/weather',artifact_stem='Weather')
+            record={'schemaVersion':1,'publication_status':'published','version':'1.2.3','uuid':PUBLIC,'store_url':'https://apps.repebble.com/'+'a'*24,'github_release_url':'https://github.com/example/weather/releases/tag/v1.2.3','pbw_url':'https://github.com/example/weather/releases/download/v1.2.3/Weather-1.2.3.pbw','pbw_sha256':kit.sha(pbw.read_bytes()),'verified_on':'2026-11-15'}
+            (store/'listing.json').write_text(json.dumps(listing));(store/'publication.json').write_text(json.dumps(record))
+            with patch.object(kit,'ROOT',root),patch('sys.argv',['store-kit.py']):kit.main()
+            with zipfile.ZipFile(root/'build/store/Weather-1.2.3-store-package.zip') as archive:
+                self.assertEqual(archive.read(pbw.name),pbw.read_bytes())
+                self.assertFalse(json.loads(archive.read('manifest.json'))['publicationReady'])
+            self.assertEqual(candidate.read_bytes(),b'changed development candidate')
     def test_public_plugin_kit_has_exact_pbw_and_remains_unpublished(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);pbw=package(root,fixture(root));entries,manifest=kit.payload(root,pbw)

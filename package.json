@@ -8,6 +8,7 @@
   "scripts": {
     "build:js": "node scripts/build-js.js",
     "build": "python3 scripts/build.py",
+    "release:prepare": "python3 scripts/github-release.py prepare --output build/release",
     "test": "node --test test/*.test.js && python3 -m unittest discover -s tests && npm run test:store",
     "smoke": "python3 scripts/smoke.py",
     "build:personal": "python3 scripts/build.py --variant personal",

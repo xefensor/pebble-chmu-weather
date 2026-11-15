@@ -1,13 +1,46 @@
-# ČHMÚ Weather — XOCE Store artwork
+# ČHMÚ Weather artwork
 
-Weather bands identify a phone weather provider. The promotional image belongs to the website; plugins have no Store screenshot set or watch banner fields.
+This is a phone-only weather plugin. Store uploads use the black transparent
+`icon-small-80.png` and `icon-large-144.png`, marked tintable. The website uses
+`product-mark.svg` at its actual UI size, with a matching 144px PNG fallback.
+There is **no native launcher export** for this plugin.
 
-The XOCE family shares Fira typography, graphite and silver device treatment, clear margins and a small wordmark. Each product has its own composition and meaningful geometry. There is no requirement to reuse Halftone’s divider or tile miniature app icons across every banner.
+`website-banner.png` and its editable SVG are website marketing artwork only.
+Plugins have no Store screenshots or watch-platform banner fields. The image
+must not be uploaded as either. It belongs to the XOCE family through Fira
+outlines, weather bands/contours and a restrained shared presentation, without
+inventing a watch interface.
 
-The website-only export is `website-banner.png`, with an editable SVG source. It must not be uploaded as a plugin screenshot or watch banner. `listing.json` and the package’s `upload-map.json` identify the current upload files. For ČHMÚ, the plugin map intentionally has no screenshots or platform banners.
+## Current authority
 
-Store and website glyphs now use the refreshed XOCE geometric family. Separate 25px launcher candidates are included under artwork/icons; the runtime launcher mappings and PBWs remain unchanged. Watchapp Store icons are 80×80 and 144×144; the tintable flag is for clients that recolour a transparent glyph. Watchface website marks are not watchapp icon uploads.
+[current-artwork.json](current-artwork.json) indexes the active files and
+identifies the records that own their hashes:
 
-The review package’s `artwork/README.md` documents explicit hero selections, generator dependencies, regeneration and Pebble references. `ARTWORK-LICENSES.txt` retains font and illustration credits. The presentation refresh does not change the app version, native display pixels, runtime source or release PBW.
+- [icon-provenance.json](icon-provenance.json): current 80/144px Store icons and
+  website marks, exported with binary alpha and a monochrome silhouette.
+- [artwork-provenance.json](artwork-provenance.json): current website banner
+  and editable SVG. Its source/font/reference paths describe the original
+  review workspace, not files promised inside this app repository.
+- [asset-provenance.json](asset-provenance.json): **historical 1.0.1** PBW,
+  previous icon hashes and original settings previews. It is retained unchanged
+  and does not override current icon provenance for reused filenames. Its original
+  icon/preview bytes remain in the [frozen 1.0.1 Store ZIP](../dist/CHMU-Weather-1.0.1-store-package.zip).
 
-Icon export and integration details are documented in the review package’s `artwork/ICONS.md`. Store uploads use PNG; the website uses the SVG mark at its actual UI size.
+The PNG/SVG files, old provenance records, original settings images and
+[font/illustration credits](ARTWORK-LICENSES.txt) retain their bytes. Historical
+browser previews do not become fresh-release or physical-phone evidence.
+
+## Reproduction and maintenance
+
+The maintained, self-contained generators and inputs live in
+[XOCE artwork tooling](https://github.com/xefensor/xoce/tree/main/artwork).
+Follow that README for dependencies, exact commands and product selections.
+Original `artwork/...` paths retained in provenance identify their creation
+context; they are not a missing local build dependency.
+
+Use the editable SVG sources in this folder for inspection. Regenerate into a
+review directory, compare intended exports and hashes, and update current
+provenance deliberately when artwork changes. Do not overwrite a historical
+record or silently alter the frozen Store package. App builds require none of
+these artwork generators. [Publication](PUBLISHING.md) and
+[publication.json](publication.json) own the checked release state.

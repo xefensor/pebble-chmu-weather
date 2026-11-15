@@ -17,15 +17,11 @@
     "icon-small-80.png",
     "icon-large-144.png"
   ],
-  "publication_status": "preparation",
+  "publication_status": "published",
   "store_submission_allowed": false,
   "publication_rule_url": "https://developer.repebble.com/guides/plugins/publishing-plugins/",
   "publication_rule_checked_on": "2026-11-14",
-  "remaining_publication_gates": [
-    "Verify Developer Dashboard ownership, existing listing and availability of the new numeric version",
-    "Verify live app-owned support/privacy URLs",
-    "Publish exact checked GitHub and Store artifacts, then activate website links"
-  ],
+  "remaining_publication_gates": [],
   "artifact_stem": "CHMU-Weather",
   "additional_description_files": [
     "description-cs.txt"
@@ -37,10 +33,11 @@
     "test_coverage": "Physical watch/phone results are not claimed; see the current release review for actual evidence."
   },
   "icon_tintable": true,
-  "store_submission_scope": "Local release-preparation gate retained from the input package; this flag is not a claim that Pebble prohibits publication. Developer account access and release availability were not checked in this presentation refresh.",
+  "store_submission_scope": "The checked public 1.0.4 release is published. Local tooling does not grant automatic submission permission; publication.json owns verified distribution status.",
   "publication_guidance_note": "The current publishing guide documents New Plugin dashboard submission and specifies no plugin screenshots. This refresh does not verify the account dashboard.",
   "website_url": "https://xefensor.github.io/xoce/projects/chmu-weather/",
   "additional_release_notes_files": [
     "release-notes-cs.txt"
-  ]
+  ],
+  "publication_record_file": "publication.json"
 }

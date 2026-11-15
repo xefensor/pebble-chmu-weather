@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Prepare or check a local Store review kit. Never upload or publish."""
 from pathlib import Path
-import argparse,hashlib,json,struct,zipfile,zlib
+import argparse,hashlib,json,re,struct,zipfile,zlib
+from datetime import date
 
 ROOT=Path(__file__).resolve().parents[1]
 DISPLAYS={'emery':(200,228),'gabbro':(260,260)}
@@ -9,6 +10,34 @@ GNU_NOTE=struct.pack('<III',4,20,3)+b'GNU\0'
 def require(condition,message):
     if not condition:raise ValueError(message)
 def sha(data):return hashlib.sha256(data).hexdigest()
+def publication_record(store,listing,package,pbw_data):
+    """Published metadata describes observed bytes; it never grants upload authority."""
+    require(listing['price']=='free' and listing['store_submission_allowed'] is False,'Review kit must retain the publication gate')
+    state=listing.get('publication_status')
+    require(state in ('preparation','published'),'Unknown publication state')
+    if state=='preparation':return None
+    require(listing.get('remaining_publication_gates')==[],'Published listing must not retain pending publication gates')
+    filename=listing.get('publication_record_file')
+    require(filename=='publication.json','Published listing requires its publication record')
+    record=json.loads((store/filename).read_text())
+    require(record.get('schemaVersion')==1 and record.get('publication_status')=='published','Invalid publication record')
+    require(record.get('version')==package['version']==listing['version'] and record.get('uuid')==listing['uuid']==package['pebble']['uuid'],'Publication identity differs')
+    repo=listing.get('source_url','').rstrip('/')
+    require(re.fullmatch(r'https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo) is not None,'Invalid publication repository URL')
+    declared=package.get('repository')
+    if isinstance(declared,dict):declared=declared.get('url')
+    if declared:
+        declared=declared.removeprefix('git+').removesuffix('.git').rstrip('/')
+        require(declared==repo,'Package and publication repositories differ')
+    tag='v'+package['version'];stem=listing.get('artifact_stem',listing['name'].replace(' ','-'))
+    require(record.get('github_release_url')==repo+'/releases/tag/'+tag,'Publication release URL differs')
+    require(record.get('pbw_url')==repo+'/releases/download/'+tag+'/'+stem+'-'+package['version']+'.pbw','Publication PBW URL differs')
+    require(re.fullmatch(r'https://apps\.repebble\.com/[0-9a-f]{24}',record.get('store_url','')) is not None,'Invalid publication Store URL')
+    require(record.get('pbw_sha256')==sha(pbw_data),'Published PBW bytes differ')
+    try:verified=date.fromisoformat(record.get('verified_on',''))
+    except (TypeError,ValueError):raise ValueError('Invalid publication verification date')
+    require(verified.isoformat()==record['verified_on'],'Invalid publication verification date')
+    return record
 def render_identity(archive,platform):
     from native_identity import renderer_identity
     return renderer_identity(archive.read(platform+'/pebble-app.bin'),archive.read(platform+'/app_resources.pbpack'))
@@ -57,8 +86,9 @@ def payload(root,pbw):
     package=json.loads((root/'package.json').read_text());store=root/'store'
     listing=json.loads((store/'listing.json').read_text());version=package['version'];settings=package['pebble']
     require(listing['version']==version and listing['name']==settings['displayName'] and listing['uuid']==settings['uuid'],'Listing identity differs')
-    require(listing['price']=='free' and listing['publication_status']=='preparation' and listing['store_submission_allowed'] is False,'Review kit must retain the publication gate')
+    published=publication_record(store,listing,package,pbw.read_bytes())
     entries={'listing.json':(store/'listing.json').read_bytes(),'PRIVACY.md':(root/'PRIVACY.md').read_bytes(),'SUPPORT.md':(root/'SUPPORT.md').read_bytes()}
+    if published:entries['publication.json']=(store/'publication.json').read_bytes()
     for key in ('description_file','release_notes_file'):
         name=listing[key];require(Path(name).name==name,'Unsafe listing filename');entries[name]=(store/name).read_bytes();require(entries[name].strip(),'Empty listing copy')
     require(pbw.stat().st_size<=4_400_000,'PBW exceeds Store limit');entries[pbw.name]=pbw.read_bytes()
@@ -115,8 +145,10 @@ def payload(root,pbw):
 
         if (root/name).is_file():entries[name]=(root/name).read_bytes()
     for name,data in entries.items():require(len(data)<=4_400_000,'Store file exceeds upload limit: '+name)
-    entries['README.txt']=('Local review kit for '+listing['name']+' '+version+'.\nNot submitted or published.\n\nRemaining publication gates:\n'+'\n'.join('- '+g for g in listing['remaining_publication_gates'])+'\n\nhttps://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/\nhttps://developer.repebble.com/guides/plugins/publishing-plugins/\n').encode()
+    status=('Published reference snapshot. publication.json records the verified Store/GitHub identity and PBW bytes.\nThis locally generated kit does not replace frozen release assets or authorize another upload.' if published else 'Not submitted or published.\n\nRemaining publication gates:\n'+'\n'.join('- '+g for g in listing['remaining_publication_gates']))
+    entries['README.txt']=('Local review kit for '+listing['name']+' '+version+'.\n'+status+'\n\nhttps://developer.repebble.com/guides/appstore-publishing/preparing-a-submission/\nhttps://developer.repebble.com/guides/plugins/publishing-plugins/\n').encode()
     manifest={'schemaVersion':1,'name':listing['name'],'version':version,'uuid':listing['uuid'],'price':'free','kind':kind,'platforms':targets,'publicationReady':False,'pbwSha256':sha(entries[pbw.name]),'files':{name:sha(data) for name,data in sorted(entries.items())}}
+    manifest['validationScope']=('Exact hash-validated published PBW integrity and provenance; no fresh SDK/ELF or physical-device claim' if published else 'Fresh public candidate payload and metadata; no live-provider or physical-device claim')
     entries['manifest.json']=(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode()
     entries['SHA256SUMS.txt']=''.join(sha(data)+'  '+name+'\n' for name,data in sorted(entries.items())).encode()
     return entries,manifest
@@ -124,7 +156,8 @@ def payload(root,pbw):
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--check',action='store_true');parser.add_argument('--pbw',type=Path);parser.add_argument('--output',type=Path);args=parser.parse_args()
     package=json.loads((ROOT/'package.json').read_text());listing=json.loads((ROOT/'store/listing.json').read_text());stem=listing.get('artifact_stem',listing['name'].replace(' ','-'))
-    pbw=args.pbw or ROOT/('dist' if listing['type']=='plugin' else 'build/candidate')/(stem+'-'+package['version']+'.pbw')
+    default_folder='releases' if listing.get('publication_status')=='published' else 'build/candidate'
+    pbw=args.pbw or ROOT/default_folder/(stem+'-'+package['version']+'.pbw')
     output=args.output or ROOT/'build/store'/(stem+'-'+package['version']+'-store-package.zip')
     entries,manifest=payload(ROOT,pbw)
     if args.check:
@@ -137,5 +170,5 @@ def main():
         with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
             for name,data in sorted(entries.items()):
                 info=zipfile.ZipInfo(name,(1980,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,data)
-    print(json.dumps({'result':'PASS','kit':str(output),'sha256':sha(output.read_bytes()),'files':len(entries),'publicationReady':False},indent=2))
+    print(json.dumps({'result':'PASS','kit':str(output),'sha256':sha(output.read_bytes()),'files':len(entries),'publicationReady':False,'validationScope':manifest['validationScope']},indent=2))
 if __name__=='__main__':main()
